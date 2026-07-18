@@ -1,7 +1,83 @@
 let cachedStandardData = [];
 let currentSymbolDisplay = "-"; 
 
-// --- 1. INITIALIZE THE CHART ---
+// --- 1. ENCRYPTED AUTHENTICATION ENGINE ---
+let currentUser = sessionStorage.getItem('idx_logged_user') || null;
+
+function handleLogin() {
+    const userIn = document.getElementById('auth-username').value.trim();
+    const passIn = document.getElementById('auth-password').value.trim();
+    if (!userIn || !passIn) return alert("Please fill in both fields!");
+
+    let usersDb = JSON.parse(localStorage.getItem('idx_users_db')) || {};
+    
+    if (!usersDb[userIn]) {
+        return alert("Account username does not exist. Please click Register to create it!");
+    }
+    if (usersDb[userIn] !== passIn) {
+        return alert("Incorrect account password. Try again.");
+    }
+
+    executeSessionLogin(userIn);
+}
+
+function handleRegistration() {
+    const userIn = document.getElementById('auth-username').value.trim();
+    const passIn = document.getElementById('auth-password').value.trim();
+    if (!userIn || !passIn) return alert("Please enter a username and password!");
+    if (userIn.length < 3 || passIn.length < 4) return alert("Username must be >= 3 chars, Password >= 4 chars.");
+
+    let usersDb = JSON.parse(localStorage.getItem('idx_users_db')) || {};
+    
+    if (usersDb[userIn]) {
+        return alert("Username already taken! Choose a unique handle.");
+    }
+
+    // Write new credentials to the local browser database object
+    usersDb[userIn] = passIn;
+    localStorage.setItem('idx_users_db', JSON.stringify(usersDb));
+    
+    alert("Registration successful! Logging you in...");
+    executeSessionLogin(userIn);
+}
+
+function executeSessionLogin(username) {
+    currentUser = username;
+    sessionStorage.setItem('idx_logged_user', username);
+    
+    // Clear credentials inputs
+    document.getElementById('auth-username').value = '';
+    document.getElementById('auth-password').value = '';
+
+    // Swap displays
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('main-app').style.display = 'flex';
+    
+    // Load tracking workspace modules
+    loadWatchlistForUser();
+    renderWatchlistUI();
+    
+    // Trigger window resize event to let TradingView Charts snap into place
+    window.dispatchEvent(new Event('resize'));
+}
+
+function handleLogout() {
+    currentUser = null;
+    sessionStorage.removeItem('idx_logged_user');
+    document.getElementById('main-app').style.display = 'none';
+    document.getElementById('login-screen').style.display = 'flex';
+}
+
+function verifyBootSession() {
+    if (currentUser) {
+        document.getElementById('login-screen').style.display = 'none';
+        document.getElementById('main-app').style.display = 'flex';
+        loadWatchlistForUser();
+        renderWatchlistUI();
+    }
+}
+
+// --- 2. INITIALIZE THE CHART ---
 const chartContainer = document.getElementById('chart-container');
 const chart = LightweightCharts.createChart(chartContainer, {
     layout: { textColor: '#d1d4dc', background: { type: 'solid', color: '#121212' } },
@@ -24,7 +100,7 @@ const volumeSeries = chart.addHistogramSeries({ priceFormat: { type: 'volume' },
 candleSeries.priceScale().applyOptions({ scaleMargins: { top: 0.1, bottom: 0.25 } });
 volumeSeries.priceScale().applyOptions({ scaleMargins: { top: 0.8, bottom: 0 } });
 
-// --- 2. HEIKIN ASHI MATH FUNCTION ---
+// --- 3. HEIKIN ASHI MATH FUNCTION ---
 function calculateHeikinAshi(standardData) {
     let haData = [];
     for (let i = 0; i < standardData.length; i++) {
@@ -47,7 +123,7 @@ function calculateHeikinAshi(standardData) {
     return haData;
 }
 
-// --- 3. HOVER LOGIC ---
+// --- 4. HOVER LOGIC ---
 function updateInfoBar(candle, volume, rawTime) {
     const symbolEl = document.getElementById('info-symbol');
     const timeEl = document.getElementById('info-time');
@@ -88,7 +164,7 @@ chart.subscribeCrosshairMove(param => {
     updateInfoBar(param.seriesData.get(candleSeries), param.seriesData.get(volumeSeries), param.time);
 });
 
-// --- 4. RENDER LOGIC ---
+// --- 5. RENDER LOGIC ---
 function renderChart() {
     if (cachedStandardData.length === 0) return;
     const selectedType = document.getElementById('chart-type').value;
@@ -108,7 +184,7 @@ function renderChart() {
     updateInfoBar(null, null, null);
 }
 
-// --- 5. CHART DATA FETCHING & MTF MATRIX ---
+// --- 6. CHART DATA FETCHING & MTF MATRIX ---
 async function fetchMTFData(symbol) {
     const wEl = document.getElementById('mtf-w');
     const dEl = document.getElementById('mtf-d');
@@ -195,13 +271,24 @@ async function fetchStockData(overrideSymbol = null) {
 }
 
 
-// --- 6. ADVANCED WATCHLIST ENGINE WITH MTF ---
-let myWatchlist = JSON.parse(localStorage.getItem('idx_watchlist')) || ['BBCA', 'GOTO', 'TLKM', 'BMRI'];
+// --- 7. WATCHLIST MODULE ---
+let myWatchlist = [];
 
-function saveWatchlist() { localStorage.setItem('idx_watchlist', JSON.stringify(myWatchlist)); }
+function loadWatchlistForUser() {
+    const savedData = localStorage.getItem(`idx_watchlist_${currentUser}`);
+    myWatchlist = savedData ? JSON.parse(savedData) : [];
+    document.getElementById('current-user-display').textContent = currentUser;
+}
+
+function saveWatchlist() { 
+    localStorage.setItem(`idx_watchlist_${currentUser}`, JSON.stringify(myWatchlist)); 
+}
 
 async function fetchWatchlistMTF() {
+    const activeUserAtStart = currentUser;
     for (const ticker of myWatchlist) {
+        if (currentUser !== activeUserAtStart) break; 
+        
         const symbol = ticker + '.JK';
         const timeframes = [
             { id: '1wk', range: '3mo', elId: `wl-w-${ticker}` },
@@ -237,6 +324,11 @@ async function fetchWatchlistMTF() {
 async function renderWatchlistUI() {
     const ul = document.getElementById('watchlist-ul');
     ul.innerHTML = '<div style="text-align: center; color: #888; padding: 20px;">Fetching live market data...</div>';
+
+    if (myWatchlist.length === 0) {
+        ul.innerHTML = '<div style="text-align: center; color: #888; padding: 20px;">Watchlist is empty. Add some tickers below!</div>';
+        return;
+    }
 
     const fetchPromises = myWatchlist.map(async (ticker) => {
         const symbol = ticker + '.JK';
@@ -329,38 +421,18 @@ function addWatchlistItem() {
 }
 
 
-// --- 7. HEIKIN ASHI SCREENER ENGINE (MEGA UNIVERSE - 300+ STOCKS) ---
+// --- 8. HEIKIN ASHI SCREENER ENGINE ---
 const IDX_TOP_STOCKS = [
-    // Big Banks & Financials
-    'BBCA', 'BBRI', 'BMRI', 'BBNI', 'BRIS', 'ARTO', 'BBTN', 'BDMN', 'BNGA', 'PNBN', 'NISP', 'BJBR', 'BJTM', 'MEGA', 'BBYB', 'AGRO', 'BNII', 'BBKP', 'BTPN', 'MAYA', 'BFIN', 'CFIN', 'MFIN', 'TIFA', 'VIVA',
-    // Tech & New Economy
-    'GOTO', 'BUKA', 'BELI', 'EMTK', 'WIRG', 'MLPT', 'GLPT', 'MTEL', 'WIFI', 'TFAS', 'DMMX', 'KREN', 'NFCX', 'DIVA',
-    // Mining, Coal & Energy
-    'ADRO', 'PTBA', 'ITMG', 'INDY', 'HRUM', 'BUMI', 'DOID', 'TOBA', 'ABMM', 'BSSR', 'KKGI', 'MBAP', 'SMMT', 'DSSA', 'CUAN', 'MEDC', 'ENRG', 'ELSA', 'PGAS', 'AKRA', 'ANTM', 'INCO', 'TINS', 'MDKA', 'BRMS', 'MBMA', 'NCKL', 'PSAB', 'AMMN', 'PGEO', 'BREN', 'BIPI', 'DEWA', 'APEX',
-    // Consumer Goods & Retail
-    'INDF', 'ICBP', 'UNVR', 'MYOR', 'AMRT', 'MIDI', 'LPPF', 'RALS', 'MAPA', 'MAPI', 'ACES', 'ERAA', 'CLEO', 'CAMP', 'GOOD', 'KEJU', 'ROTI', 'ULTJ', 'KINO', 'STTP', 'AISA', 'CMRY', 'CINF', 'EPMT', 'HERO', 'MPPA', 'PCAR',
-    // Telco & Towers
-    'TLKM', 'EXCL', 'ISAT', 'FREN', 'TOWR', 'TBIG', 'SUPR', 'GHON',
-    // Heavy Equipment & Auto
-    'ASII', 'UNTR', 'AUTO', 'SMSM', 'IMAS', 'GJTL', 'MASA', 'PRAS', 'BRAM',
-    // Agriculture & Poultry
-    'CPIN', 'JPFA', 'MAIN', 'WMUU', 'AALI', 'LSIP', 'SSMS', 'TAPG', 'DSNG', 'SIMP', 'SMAR', 'BWPT', 'TBLA', 'ANJT', 'CPRO', 'BISI', 'JAWA',
-    // Infrastructure & Toll Roads
-    'JSMR', 'META', 'CMNP',
-    // Construction & Building
-    'WIKA', 'PTPP', 'ADHI', 'WSKT', 'WEGE', 'WGEM', 'TOTL', 'NRCA', 'ACST', 'DGIK', 'PTPW',
-    // Property & Real Estate
-    'BSDE', 'CTRA', 'SMRA', 'PWON', 'ASRI', 'DILD', 'KIJA', 'SSIA', 'LPCK', 'LPKR', 'APLN', 'BKSL', 'GWSA', 'RODA', 'JRPT', 'PLIN',
-    // Healthcare & Pharma
-    'KLBF', 'MIKA', 'SILO', 'HEAL', 'SIDO', 'PRDA', 'IRRA', 'KAEF', 'INAF', 'PEHA', 'TSPC', 'DVLA',
-    // Basic Industry, Cement & Chemicals
-    'TPIA', 'BRPT', 'INKP', 'TKIM', 'SMGR', 'INTP', 'SMBR', 'SMCB', 'KRAS', 'ISSP', 'GUNP', 'LION', 'JKSW', 'ALMI', 'BAJA', 'FASW', 'SPMA',
-    // Logistics, Transport & Shipping
-    'BIRD', 'ASSA', 'TMAS', 'SMDR', 'GIAA', 'CASS', 'CMPP', 'IPCM', 'HITS', 'SOCI', 'TCPI', 'TRUK', 'BPTR',
-    // Media
-    'MNCN', 'BMTR', 'SCMA', 'MSIN', 'VIVA', 'MDIA', 'MARI', 'ABBA',
-    // Various Additions (Highly Liquid Mid/Small Caps)
-    'RAJA', 'SGER', 'OASA', 'VKTR', 'PTMP', 'FILM', 'WIFI', 'NELY', 'PANI', 'TRIM', 'KRYA', 'GZCO', 'BOGA', 'CARS', 'OMED', 'VTNY', 'GTBO'
+    'BBCA', 'BBRI', 'BMRI', 'BBNI', 'TLKM', 'ASII', 'GOTO', 'AMMN', 'BREN', 'BRPT',
+    'UNTR', 'ICBP', 'INDF', 'AMRT', 'KLBF', 'ADRO', 'PTBA', 'UNVR', 'CPIN', 'PGEO',
+    'PGAS', 'AKRA', 'MEDC', 'INKP', 'MDKA', 'ITMG', 'EXCL', 'TPIA', 'ANTM', 'BRIS',
+    'INCO', 'CUAN', 'MYOR', 'SMGR', 'INTP', 'MAPI', 'BFIN', 'JSMR', 'MIKA', 'TOWR',
+    'TBIG', 'SMRA', 'BSDE', 'CTRA', 'MNCN', 'BMTR', 'ERAA', 'ACES', 'SCMA', 'SIDO',
+    'BRMS', 'BUMI', 'DEWA', 'ENRG', 'ELSA', 'HRUM', 'MBMA', 'NCKL', 'PTMP', 'VKTR',
+    'WIFI', 'WIKA', 'PTPP', 'ADHI', 'WSKT', 'WEGE', 'SSIA', 'SILO', 'HEAL', 'ARTO',
+    'BBTN', 'BDMN', 'BNGA', 'PNBN', 'NISP', 'BJBR', 'BJTM', 'MEGA', 'AGRO', 'BBYB',
+    'ARTA', 'SRTG', 'ABMM', 'BSSR', 'INDY', 'DOID', 'TOBA', 'GGRM', 'HMSP', 'WIIM',
+    'WOOD', 'CLEO', 'CAMP', 'GOOD', 'KEJU', 'ROTI', 'ULTJ', 'TAPG', 'DSNG', 'LSIP'
 ];
 
 async function runScreener() {
@@ -375,7 +447,6 @@ async function runScreener() {
     
     for (let i = 0; i < IDX_TOP_STOCKS.length; i += batchSize) {
         const batch = IDX_TOP_STOCKS.slice(i, i + batchSize);
-        // Updated text to show you are scanning the Mega-List
         statusText.textContent = `Scanning Mega-Universe... Processing ${Math.min(i + batchSize, IDX_TOP_STOCKS.length)} of ${IDX_TOP_STOCKS.length}`;
 
         const batchPromises = batch.map(async (ticker) => {
@@ -414,9 +485,10 @@ async function runScreener() {
                         const body = Math.abs(currentHA.close - currentHA.open);
                         const upperWick = currentHA.high - Math.max(currentHA.open, currentHA.close);
                         const lowerWick = Math.min(currentHA.open, currentHA.close) - currentHA.low;
-                        const totalLength = currentHA.high - currentHA.low;
+                        const totalLength = currentHA.high - totalLength;
+                        const calcLen = currentHA.high - currentHA.low;
                         
-                        if (totalLength > 0 && body < (totalLength * 0.3) && upperWick > body && lowerWick > body) {
+                        if (calcLen > 0 && body < (calcLen * 0.3) && upperWick > body && lowerWick > body) {
                             matchFound = true;
                         }
                     }
@@ -425,9 +497,7 @@ async function runScreener() {
                         matchedStocks.push({ ticker, price: currentPrice, tradeValue: tradingValue, streak: bearishStreak });
                     }
                 }
-            } catch (e) { 
-                // Silently skip delisted or fully suspended stocks to keep UI clean
-            }
+            } catch (e) { }
         });
 
         await Promise.all(batchPromises);
@@ -469,7 +539,7 @@ async function runScreener() {
 }
 
 
-// --- 8. EVENT LISTENERS ---
+// --- 9. EVENT LISTENERS ---
 document.getElementById('stock-input').addEventListener('focus', function() { this.select(); });
 document.getElementById('search-btn').addEventListener('click', () => fetchStockData());
 document.getElementById('stock-input').addEventListener('keypress', (e) => { if (e.key === 'Enter') fetchStockData(); });
@@ -480,6 +550,14 @@ document.getElementById('add-watchlist-btn').addEventListener('click', addWatchl
 document.getElementById('new-watchlist-item').addEventListener('keypress', (e) => { if (e.key === 'Enter') addWatchlistItem(); });
 
 document.getElementById('run-screener-btn').addEventListener('click', runScreener);
+
+// Authentic Gateway Click Listeners
+document.getElementById('auth-login-btn').addEventListener('click', handleLogin);
+document.getElementById('auth-register-btn').addEventListener('click', handleRegistration);
+document.getElementById('logout-btn').addEventListener('click', handleLogout);
+
+// Listeners for input field returns inside the login module
+document.getElementById('auth-password').addEventListener('keypress', (e) => { if (e.key === 'Enter') handleLogin(); });
 
 document.querySelectorAll('.tab-btn').forEach(button => {
     button.addEventListener('click', () => {
@@ -492,4 +570,5 @@ document.querySelectorAll('.tab-btn').forEach(button => {
     });
 });
 
-renderWatchlistUI();
+// Verify if a session key is running on memory initialization
+verifyBootSession();
