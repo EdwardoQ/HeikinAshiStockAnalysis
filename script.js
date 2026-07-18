@@ -423,16 +423,36 @@ function addWatchlistItem() {
 
 // --- 8. HEIKIN ASHI SCREENER ENGINE ---
 const IDX_TOP_STOCKS = [
-    'BBCA', 'BBRI', 'BMRI', 'BBNI', 'TLKM', 'ASII', 'GOTO', 'AMMN', 'BREN', 'BRPT',
-    'UNTR', 'ICBP', 'INDF', 'AMRT', 'KLBF', 'ADRO', 'PTBA', 'UNVR', 'CPIN', 'PGEO',
-    'PGAS', 'AKRA', 'MEDC', 'INKP', 'MDKA', 'ITMG', 'EXCL', 'TPIA', 'ANTM', 'BRIS',
-    'INCO', 'CUAN', 'MYOR', 'SMGR', 'INTP', 'MAPI', 'BFIN', 'JSMR', 'MIKA', 'TOWR',
-    'TBIG', 'SMRA', 'BSDE', 'CTRA', 'MNCN', 'BMTR', 'ERAA', 'ACES', 'SCMA', 'SIDO',
-    'BRMS', 'BUMI', 'DEWA', 'ENRG', 'ELSA', 'HRUM', 'MBMA', 'NCKL', 'PTMP', 'VKTR',
-    'WIFI', 'WIKA', 'PTPP', 'ADHI', 'WSKT', 'WEGE', 'SSIA', 'SILO', 'HEAL', 'ARTO',
-    'BBTN', 'BDMN', 'BNGA', 'PNBN', 'NISP', 'BJBR', 'BJTM', 'MEGA', 'AGRO', 'BBYB',
-    'ARTA', 'SRTG', 'ABMM', 'BSSR', 'INDY', 'DOID', 'TOBA', 'GGRM', 'HMSP', 'WIIM',
-    'WOOD', 'CLEO', 'CAMP', 'GOOD', 'KEJU', 'ROTI', 'ULTJ', 'TAPG', 'DSNG', 'LSIP'
+    // Big Banks & Financials
+    'BBCA', 'BBRI', 'BMRI', 'BBNI', 'BRIS', 'ARTO', 'BBTN', 'BDMN', 'BNGA', 'PNBN', 'NISP', 'BJBR', 'BJTM', 'MEGA', 'BBYB', 'AGRO', 'BNII', 'BBKP', 'BTPN', 'MAYA', 'BFIN', 'CFIN', 'MFIN', 'TIFA', 'VIVA',
+    // Tech & New Economy
+    'GOTO', 'BUKA', 'BELI', 'EMTK', 'WIRG', 'MLPT', 'GLPT', 'MTEL', 'WIFI', 'TFAS', 'DMMX', 'KREN', 'NFCX', 'DIVA',
+    // Mining, Coal & Energy
+    'ADRO', 'PTBA', 'ITMG', 'INDY', 'HRUM', 'BUMI', 'DOID', 'TOBA', 'ABMM', 'BSSR', 'KKGI', 'MBAP', 'SMMT', 'DSSA', 'CUAN', 'MEDC', 'ENRG', 'ELSA', 'PGAS', 'AKRA', 'ANTM', 'INCO', 'TINS', 'MDKA', 'BRMS', 'MBMA', 'NCKL', 'PSAB', 'AMMN', 'PGEO', 'BREN', 'BIPI', 'DEWA', 'APEX',
+    // Consumer Goods & Retail
+    'INDF', 'ICBP', 'UNVR', 'MYOR', 'AMRT', 'MIDI', 'LPPF', 'RALS', 'MAPA', 'MAPI', 'ACES', 'ERAA', 'CLEO', 'CAMP', 'GOOD', 'KEJU', 'ROTI', 'ULTJ', 'KINO', 'STTP', 'AISA', 'CMRY', 'CINF', 'EPMT', 'HERO', 'MPPA', 'PCAR',
+    // Telco & Towers
+    'TLKM', 'EXCL', 'ISAT', 'FREN', 'TOWR', 'TBIG', 'SUPR', 'GHON',
+    // Heavy Equipment & Auto
+    'ASII', 'UNTR', 'AUTO', 'SMSM', 'IMAS', 'GJTL', 'MASA', 'PRAS', 'BRAM',
+    // Agriculture & Poultry
+    'CPIN', 'JPFA', 'MAIN', 'WMUU', 'AALI', 'LSIP', 'SSMS', 'TAPG', 'DSNG', 'SIMP', 'SMAR', 'BWPT', 'TBLA', 'ANJT', 'CPRO', 'BISI', 'JAWA',
+    // Infrastructure & Toll Roads
+    'JSMR', 'META', 'CMNP',
+    // Construction & Building
+    'WIKA', 'PTPP', 'ADHI', 'WSKT', 'WEGE', 'WGEM', 'TOTL', 'NRCA', 'ACST', 'DGIK', 'PTPW',
+    // Property & Real Estate
+    'BSDE', 'CTRA', 'SMRA', 'PWON', 'ASRI', 'DILD', 'KIJA', 'SSIA', 'LPCK', 'LPKR', 'APLN', 'BKSL', 'GWSA', 'RODA', 'JRPT', 'PLIN',
+    // Healthcare & Pharma
+    'KLBF', 'MIKA', 'SILO', 'HEAL', 'SIDO', 'PRDA', 'IRRA', 'KAEF', 'INAF', 'PEHA', 'TSPC', 'DVLA',
+    // Basic Industry, Cement & Chemicals
+    'TPIA', 'BRPT', 'INKP', 'TKIM', 'SMGR', 'INTP', 'SMBR', 'SMCB', 'KRAS', 'ISSP', 'GUNP', 'LION', 'JKSW', 'ALMI', 'BAJA', 'FASW', 'SPMA',
+    // Logistics, Transport & Shipping
+    'BIRD', 'ASSA', 'TMAS', 'SMDR', 'GIAA', 'CASS', 'CMPP', 'IPCM', 'HITS', 'SOCI', 'TCPI', 'TRUK', 'BPTR',
+    // Media
+    'MNCN', 'BMTR', 'SCMA', 'MSIN', 'VIVA', 'MDIA', 'MARI', 'ABBA',
+    // Various Additions (Highly Liquid Mid/Small Caps)
+    'RAJA', 'SGER', 'OASA', 'VKTR', 'PTMP', 'FILM', 'WIFI', 'NELY', 'PANI', 'TRIM', 'KRYA', 'GZCO', 'BOGA', 'CARS', 'OMED', 'VTNY', 'GTBO'
 ];
 
 async function runScreener() {
