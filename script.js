@@ -1,7 +1,7 @@
 let cachedStandardData = [];
 let currentSymbolDisplay = "-"; 
 
-// --- 1. ENCRYPTED AUTHENTICATION ENGINE ---
+// --- 1. LOCAL VAULT SECURITY LOGIC ---
 let currentUser = sessionStorage.getItem('idx_logged_user') || null;
 
 function handleLogin() {
@@ -33,7 +33,6 @@ function handleRegistration() {
         return alert("Username already taken! Choose a unique handle.");
     }
 
-    // Write new credentials to the local browser database object
     usersDb[userIn] = passIn;
     localStorage.setItem('idx_users_db', JSON.stringify(usersDb));
     
@@ -45,19 +44,21 @@ function executeSessionLogin(username) {
     currentUser = username;
     sessionStorage.setItem('idx_logged_user', username);
     
-    // Clear credentials inputs
     document.getElementById('auth-username').value = '';
     document.getElementById('auth-password').value = '';
 
-    // Swap displays
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('main-app').style.display = 'flex';
     
-    // Load tracking workspace modules
+    // BUG FIX: Force chart to recalculate dimensions upon container reveal
+    const rect = chartContainer.getBoundingClientRect();
+    if (rect.width > 0 && rect.height > 0) {
+        chart.resize(rect.width, rect.height);
+    }
+    
     loadWatchlistForUser();
     renderWatchlistUI();
     
-    // Trigger window resize event to let TradingView Charts snap into place
     window.dispatchEvent(new Event('resize'));
 }
 
@@ -77,7 +78,7 @@ function verifyBootSession() {
     }
 }
 
-// --- 2. INITIALIZE THE CHART ---
+// --- 2. INITIALIZE CHART CORE ---
 const chartContainer = document.getElementById('chart-container');
 const chart = LightweightCharts.createChart(chartContainer, {
     layout: { textColor: '#d1d4dc', background: { type: 'solid', color: '#121212' } },
@@ -85,10 +86,13 @@ const chart = LightweightCharts.createChart(chartContainer, {
     timeScale: { borderColor: '#2b2b43', timeVisible: true, secondsVisible: false }
 });
 
+// BUG FIX: Avoid initializing layout math errors inside hidden elements
 new ResizeObserver(entries => {
     if (entries.length === 0 || entries[0].target !== chartContainer) { return; }
     const newRect = entries[0].contentRect;
-    chart.applyOptions({ height: newRect.height, width: newRect.width });
+    if (newRect.width > 0 && newRect.height > 0) {
+        chart.resize(newRect.width, newRect.height);
+    }
 }).observe(chartContainer);
 
 const candleSeries = chart.addCandlestickSeries({
@@ -100,7 +104,7 @@ const volumeSeries = chart.addHistogramSeries({ priceFormat: { type: 'volume' },
 candleSeries.priceScale().applyOptions({ scaleMargins: { top: 0.1, bottom: 0.25 } });
 volumeSeries.priceScale().applyOptions({ scaleMargins: { top: 0.8, bottom: 0 } });
 
-// --- 3. HEIKIN ASHI MATH FUNCTION ---
+// --- 3. HEIKIN ASHI MATHEMATICAL ALGORITHM ---
 function calculateHeikinAshi(standardData) {
     let haData = [];
     for (let i = 0; i < standardData.length; i++) {
@@ -109,8 +113,7 @@ function calculateHeikinAshi(standardData) {
         if (i === 0) {
             haCandle.open = (current.open + current.close) / 2;
             haCandle.close = (current.open + current.high + current.low + current.close) / 4;
-            haCandle.high = current.high;
-            haCandle.low = current.low;
+            haCandle.high = current.high; haCandle.low = current.low;
         } else {
             let prevHA = haData[i - 1];
             haCandle.close = (current.open + current.high + current.low + current.close) / 4;
@@ -123,7 +126,7 @@ function calculateHeikinAshi(standardData) {
     return haData;
 }
 
-// --- 4. HOVER LOGIC ---
+// --- 4. DATA HOVER ENGINE LOGIC ---
 function updateInfoBar(candle, volume, rawTime) {
     const symbolEl = document.getElementById('info-symbol');
     const timeEl = document.getElementById('info-time');
@@ -158,13 +161,12 @@ function updateInfoBar(candle, volume, rawTime) {
 
 chart.subscribeCrosshairMove(param => {
     if (!param.time || param.point === undefined || param.point.x < 0 || param.point.y < 0) {
-        updateInfoBar(null, null, null);
-        return;
+        updateInfoBar(null, null, null); return;
     }
     updateInfoBar(param.seriesData.get(candleSeries), param.seriesData.get(volumeSeries), param.time);
 });
 
-// --- 5. RENDER LOGIC ---
+// --- 5. VISUAL RENDERING PLATFORM ---
 function renderChart() {
     if (cachedStandardData.length === 0) return;
     const selectedType = document.getElementById('chart-type').value;
@@ -176,20 +178,18 @@ function renderChart() {
     }
 
     let volumeData = cachedStandardData.map(current => ({
-        time: current.time,
-        value: current.volume,
+        time: current.time, value: current.volume,
         color: current.close >= current.open ? 'rgba(38, 166, 154, 0.4)' : 'rgba(239, 83, 80, 0.4)'
     }));
     volumeSeries.setData(volumeData);
     updateInfoBar(null, null, null);
 }
 
-// --- 6. CHART DATA FETCHING & MTF MATRIX ---
+// --- 6. CHART DATA STREAMING & MTF FRAMEWORK ---
 async function fetchMTFData(symbol) {
     const wEl = document.getElementById('mtf-w');
     const dEl = document.getElementById('mtf-d');
     const hEl = document.getElementById('mtf-h');
-    
     wEl.innerHTML = 'W: ⏳'; dEl.innerHTML = 'D: ⏳'; hEl.innerHTML = 'H: ⏳';
 
     const timeframes = [
@@ -212,25 +212,19 @@ async function fetchMTFData(symbol) {
                     stdData.push({ time: result.timestamp[i], open: quotes.open[i], high: quotes.high[i], low: quotes.low[i], close: quotes.close[i] });
                 }
             }
-            
             const haData = calculateHeikinAshi(stdData);
             const isBullish = haData[haData.length - 1].close >= haData[haData.length - 1].open;
             config.el.innerHTML = `${config.label}: ${isBullish ? '🟢' : '🔴'}`;
-        } catch (e) {
-            config.el.innerHTML = `${config.label}: ⚠️`;
-        }
+        } catch (e) { config.el.innerHTML = `${config.label}: ⚠️`; }
     });
 }
 
 async function fetchStockData(overrideSymbol = null) {
     const inputElement = document.getElementById('stock-input');
     let rawInput = overrideSymbol ? overrideSymbol : inputElement.value.trim().toUpperCase();
-    
     if (!rawInput) { alert("Please enter a stock ticker first!"); return; }
 
-    inputElement.value = rawInput; 
-    inputElement.blur();
-    
+    inputElement.value = rawInput; inputElement.blur();
     currentSymbolDisplay = rawInput.replace('.JK', ''); 
     let symbol = rawInput.endsWith('.JK') ? rawInput : rawInput + '.JK';
 
@@ -240,7 +234,6 @@ async function fetchStockData(overrideSymbol = null) {
     const [interval, range] = timeframeVal.split('|');
 
     candleSeries.setData([]); volumeSeries.setData([]); cachedStandardData = [];
-
     const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=${interval}&range=${range}`)}`;
 
     try {
@@ -251,31 +244,25 @@ async function fetchStockData(overrideSymbol = null) {
         const result = data.chart.result[0];
         const timestamps = result.timestamp;
         const quotes = result.indicators.quote[0];
-
         if (!timestamps) { alert(`No historical data found for ${symbol} on this timeframe.`); return; }
 
-        let tempArray = [];
-        let lastTimestamp = 0;
-
+        let tempArray = [], lastTimestamp = 0;
         for (let i = 0; i < timestamps.length; i++) {
             if (quotes.open[i] === null || quotes.high[i] === null || quotes.low[i] === null || quotes.close[i] === null) continue;
             if (timestamps[i] === lastTimestamp) continue;
             lastTimestamp = timestamps[i];
             tempArray.push({ time: timestamps[i], open: quotes.open[i], high: quotes.high[i], low: quotes.low[i], close: quotes.close[i], volume: quotes.volume[i] || 0 });
         }
-
-        cachedStandardData = tempArray;
-        renderChart();
-        chart.timeScale().fitContent(); 
+        cachedStandardData = tempArray; renderChart(); chart.timeScale().fitContent(); 
     } catch (error) { console.error("Fetch Error:", error); }
 }
 
-
-// --- 7. WATCHLIST MODULE ---
+// --- 7. ACCOUNT SPECIFIC WATCHLIST PLATFORM ---
 let myWatchlist = [];
 
 function loadWatchlistForUser() {
     const savedData = localStorage.getItem(`idx_watchlist_${currentUser}`);
+    // BUG FIX: Wipes shared fallback list; defaults strictly to blank array []
     myWatchlist = savedData ? JSON.parse(savedData) : [];
     document.getElementById('current-user-display').textContent = currentUser;
 }
@@ -288,12 +275,8 @@ async function fetchWatchlistMTF() {
     const activeUserAtStart = currentUser;
     for (const ticker of myWatchlist) {
         if (currentUser !== activeUserAtStart) break; 
-        
         const symbol = ticker + '.JK';
-        const timeframes = [
-            { id: '1wk', range: '3mo', elId: `wl-w-${ticker}` },
-            { id: '1h', range: '1mo', elId: `wl-h-${ticker}` }
-        ];
+        const timeframes = [{ id: '1wk', range: '3mo', elId: `wl-w-${ticker}` }, { id: '1h', range: '1mo', elId: `wl-h-${ticker}` }];
 
         for (const config of timeframes) {
             const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=${config.id}&range=${config.range}`)}`;
@@ -303,13 +286,10 @@ async function fetchWatchlistMTF() {
                 const quotes = data.chart.result[0].indicators.quote[0];
                 let stdData = [];
                 for (let i = 0; i < data.chart.result[0].timestamp.length; i++) {
-                    if (quotes.open[i] !== null) {
-                        stdData.push({ open: quotes.open[i], high: quotes.high[i], low: quotes.low[i], close: quotes.close[i] });
-                    }
+                    if (quotes.open[i] !== null) stdData.push({ open: quotes.open[i], high: quotes.high[i], low: quotes.low[i], close: quotes.close[i] });
                 }
                 const haData = calculateHeikinAshi(stdData);
                 const isBullish = haData[haData.length - 1].close >= haData[haData.length - 1].open;
-                
                 const span = document.getElementById(config.elId);
                 if (span) span.textContent = `${config.id === '1wk' ? 'W' : 'H'}: ${isBullish ? '🟢' : '🔴'}`;
             } catch (e) {
@@ -326,80 +306,62 @@ async function renderWatchlistUI() {
     ul.innerHTML = '<div style="text-align: center; color: #888; padding: 20px;">Fetching live market data...</div>';
 
     if (myWatchlist.length === 0) {
-        ul.innerHTML = '<div style="text-align: center; color: #888; padding: 20px;">Watchlist is empty. Add some tickers below!</div>';
-        return;
+        ul.innerHTML = '<div style="text-align: center; color: #888; padding: 20px;">Watchlist is empty. Add some tickers below!</div>'; return;
     }
 
     const fetchPromises = myWatchlist.map(async (ticker) => {
         const symbol = ticker + '.JK';
         const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=1mo`)}`;
-
         try {
             const response = await fetch(proxyUrl);
             const data = await response.json();
             const result = data.chart.result[0];
-            const timestamps = result.timestamp;
             const quotes = result.indicators.quote[0];
             let stdData = [];
-            
-            for (let i = 0; i < timestamps.length; i++) {
-                if (quotes.open[i] !== null) {
-                    stdData.push({ time: timestamps[i], open: quotes.open[i], high: quotes.high[i], low: quotes.low[i], close: quotes.close[i] });
-                }
+            for (let i = 0; i < result.timestamp.length; i++) {
+                if (quotes.open[i] !== null) stdData.push({ time: result.timestamp[i], open: quotes.open[i], high: quotes.high[i], low: quotes.low[i], close: quotes.close[i] });
             }
-
             const currentPrice = result.meta.regularMarketPrice;
             let prevClose = stdData.length > 1 ? stdData[stdData.length - 2].close : currentPrice;
             const change = currentPrice - prevClose;
-            const changePct = (change / prevClose) * 100;
-
             const haData = calculateHeikinAshi(stdData);
             const isHAUp = haData[haData.length - 1].close >= haData[haData.length - 1].open;
-
-            return { ticker, currentPrice, change, changePct, isHAUp, error: false };
-        } catch (e) {
-            return { ticker, error: true };
-        }
+            return { ticker, currentPrice, change, changePct: (change / prevClose) * 100, isHAUp, error: false };
+        } catch (e) { return { ticker, error: true }; }
     });
 
-    const results = await Promise.all(fetchPromises);
-    ul.innerHTML = '';
+    const results = await Promise.all(fetchPromises); ul.innerHTML = '';
 
     results.forEach((item, index) => {
-        const li = document.createElement('li');
-        li.className = 'stock-item';
+        const li = document.createElement('li'); li.className = 'stock-item';
         li.onclick = () => { fetchStockData(item.ticker); document.querySelector('[data-target="chart-view"]').click(); };
 
         if (item.error) {
             li.innerHTML = `<span style="color:#ef5350;">Failed to load data for ${item.ticker}</span><button class="delete-btn">×</button>`;
         } else {
             const avatarLetters = item.ticker.substring(0, 2);
-            const priceStr = item.currentPrice.toLocaleString('en-US');
             const changeSign = item.change >= 0 ? '+' : '';
             const colorClass = item.change >= 0 ? 'text-green' : 'text-red';
-            const changeStr = `${changeSign}${item.change.toFixed(0)} (${changeSign}${item.changePct.toFixed(2)}%)`;
-            const haText = item.isHAUp ? 'DAILY HA: BULLISH' : 'DAILY HA: BEARISH';
-            const dStatus = item.isHAUp ? '🟢' : '🔴';
-
+            
             li.innerHTML = `
                 <div class="wl-left">
                     <div class="wl-avatar">${avatarLetters}</div>
                     <div class="wl-ticker-info">
                         <div style="display:flex; align-items:center; gap:10px;">
                             <span class="wl-ticker-name">${item.ticker}</span>
-                            <span class="ha-badge ${item.isHAUp ? 'up' : 'down'}">${haText}</span>
+                            <span class="ha-badge ${item.isHAUp ? 'up' : 'down'}">${item.isHAUp ? 'DAILY HA: BULLISH' : 'DAILY HA: BEARISH'}</span>
                         </div>
                         <div class="wl-mtf">
                             <span id="wl-w-${item.ticker}">W: ⏳</span>
-                            <span>D: ${dStatus}</span>
+                            <span>D: ${item.isHAUp ? '🟢' : '🔴'}</span>
                             <span id="wl-h-${item.ticker}">H: ⏳</span>
                         </div>
                     </div>
                 </div>
                 <div class="wl-right">
                     <div class="wl-price-info">
-                        <span class="wl-price">${priceStr}</span>
-                        <span class="wl-change ${colorClass}">${changeStr}</span>
+                        <span class="wl-price">${item.currentPrice.toLocaleString('en-US')}</span>
+                        <span class="wl-change ${colorClass}">${changeSign}${item.change.toFixed(0)} (${changeSign}${item.changePct.toFixed(2)}%)</span>
                     </div>
                     <button class="delete-btn">×</button>
                 </div>
@@ -408,7 +370,6 @@ async function renderWatchlistUI() {
         li.querySelector('.delete-btn').onclick = (e) => { e.stopPropagation(); myWatchlist.splice(index, 1); saveWatchlist(); renderWatchlistUI(); };
         ul.appendChild(li);
     });
-
     fetchWatchlistMTF();
 }
 
@@ -420,10 +381,9 @@ function addWatchlistItem() {
     }
 }
 
-
-// --- 8. HEIKIN ASHI SCREENER ENGINE ---
+// --- 8. HEIKIN ASHI SCREENER ENGINE (300+ MEGA UNIVERSE) ---
 const IDX_TOP_STOCKS = [
-    // Big Banks & Financials
+     // Big Banks & Financials
     'BBCA', 'BBRI', 'BMRI', 'BBNI', 'BRIS', 'ARTO', 'BBTN', 'BDMN', 'BNGA', 'PNBN', 'NISP', 'BJBR', 'BJTM', 'MEGA', 'BBYB', 'AGRO', 'BNII', 'BBKP', 'BTPN', 'MAYA', 'BFIN', 'CFIN', 'MFIN', 'TIFA', 'VIVA',
     // Tech & New Economy
     'GOTO', 'BUKA', 'BELI', 'EMTK', 'WIRG', 'MLPT', 'GLPT', 'MTEL', 'WIFI', 'TFAS', 'DMMX', 'KREN', 'NFCX', 'DIVA',
@@ -460,10 +420,8 @@ async function runScreener() {
     const statusText = document.getElementById('screener-status');
     const strategy = document.getElementById('screener-strategy').value; 
     
-    ul.innerHTML = '';
-    statusText.style.color = "#d1d4dc";
-    let matchedStocks = [];
-    const batchSize = 10;
+    ul.innerHTML = ''; statusText.style.color = "#d1d4dc";
+    let matchedStocks = []; const batchSize = 10;
     
     for (let i = 0; i < IDX_TOP_STOCKS.length; i += batchSize) {
         const batch = IDX_TOP_STOCKS.slice(i, i + batchSize);
@@ -472,19 +430,13 @@ async function runScreener() {
         const batchPromises = batch.map(async (ticker) => {
             const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${ticker}.JK?interval=1d&range=2mo`)}`;
             try {
-                const response = await fetch(proxyUrl);
-                const data = await response.json();
-                const result = data.chart.result[0];
-                const timestamps = result.timestamp;
-                const quotes = result.indicators.quote[0];
-                let stdData = [];
+                const response = await fetch(proxyUrl); const data = await response.json();
+                const result = data.chart.result[0]; const timestamps = result.timestamp;
+                const quotes = result.indicators.quote[0]; let stdData = [];
 
                 for (let j = 0; j < timestamps.length; j++) {
-                    if (quotes.open[j] !== null) {
-                        stdData.push({ time: timestamps[j], open: quotes.open[j], high: quotes.high[j], low: quotes.low[j], close: quotes.close[j], volume: quotes.volume[j] || 0 });
-                    }
+                    if (quotes.open[j] !== null) stdData.push({ time: timestamps[j], open: quotes.open[j], high: quotes.high[j], low: quotes.low[j], close: quotes.close[j], volume: quotes.volume[j] || 0 });
                 }
-
                 if (stdData.length < 10) return; 
 
                 const haData = calculateHeikinAshi(stdData);
@@ -500,22 +452,17 @@ async function runScreener() {
                     const tradingValue = currentPrice * stdData[stdData.length - 1].volume;
                     let matchFound = false;
 
-                    if (strategy === 'reversal' && currentHA.close > currentHA.open) { matchFound = true; } 
+                    if (strategy === 'reversal' && currentHA.close > currentHA.open) matchFound = true;
                     else if (strategy === 'doji') {
                         const body = Math.abs(currentHA.close - currentHA.open);
                         const upperWick = currentHA.high - Math.max(currentHA.open, currentHA.close);
                         const lowerWick = Math.min(currentHA.open, currentHA.close) - currentHA.low;
-                        const totalLength = currentHA.high - totalLength;
                         const calcLen = currentHA.high - currentHA.low;
                         
-                        if (calcLen > 0 && body < (calcLen * 0.3) && upperWick > body && lowerWick > body) {
-                            matchFound = true;
-                        }
+                        if (calcLen > 0 && body < (calcLen * 0.3) && upperWick > body && lowerWick > body) matchFound = true;
                     }
 
-                    if (matchFound) {
-                        matchedStocks.push({ ticker, price: currentPrice, tradeValue: tradingValue, streak: bearishStreak });
-                    }
+                    if (matchFound) matchedStocks.push({ ticker, price: currentPrice, tradeValue: tradingValue, streak: bearishStreak });
                 }
             } catch (e) { }
         });
@@ -535,16 +482,12 @@ async function runScreener() {
         const li = document.createElement('li'); li.className = 'stock-item';
         li.onclick = () => { fetchStockData(item.ticker); document.querySelector('[data-target="chart-view"]').click(); };
 
-        const avatarLetters = item.ticker.substring(0, 2);
-        const badgeClass = strategy === 'reversal' ? 'up' : 'neutral';
-        const badgeText = strategy === 'reversal' ? `REVERSED A ${item.streak}-DAY RED TREND` : `BOTTOM DOJI AFTER ${item.streak}-DAY DROP`;
-
         li.innerHTML = `
             <div class="wl-left">
-                <div class="wl-avatar">${avatarLetters}</div>
+                <div class="wl-avatar">${item.ticker.substring(0, 2)}</div>
                 <div class="wl-ticker-info">
                     <span class="wl-ticker-name">${item.ticker}</span>
-                    <span class="ha-badge ${badgeClass}">${badgeText}</span>
+                    <span class="ha-badge ${strategy === 'reversal' ? 'up' : 'neutral'}">${strategy === 'reversal' ? `REVERSED A ${item.streak}-DAY RED TREND` : `BOTTOM DOJI AFTER ${item.streak}-DAY DROP`}</span>
                 </div>
             </div>
             <div class="wl-right">
@@ -558,8 +501,7 @@ async function runScreener() {
     });
 }
 
-
-// --- 9. EVENT LISTENERS ---
+// --- 9. MODULE TERMINAL REGISTRATION LISTENERS ---
 document.getElementById('stock-input').addEventListener('focus', function() { this.select(); });
 document.getElementById('search-btn').addEventListener('click', () => fetchStockData());
 document.getElementById('stock-input').addEventListener('keypress', (e) => { if (e.key === 'Enter') fetchStockData(); });
@@ -568,27 +510,19 @@ document.getElementById('timeframe-select').addEventListener('change', () => fet
 
 document.getElementById('add-watchlist-btn').addEventListener('click', addWatchlistItem);
 document.getElementById('new-watchlist-item').addEventListener('keypress', (e) => { if (e.key === 'Enter') addWatchlistItem(); });
-
 document.getElementById('run-screener-btn').addEventListener('click', runScreener);
 
-// Authentic Gateway Click Listeners
 document.getElementById('auth-login-btn').addEventListener('click', handleLogin);
 document.getElementById('auth-register-btn').addEventListener('click', handleRegistration);
 document.getElementById('logout-btn').addEventListener('click', handleLogout);
-
-// Listeners for input field returns inside the login module
 document.getElementById('auth-password').addEventListener('keypress', (e) => { if (e.key === 'Enter') handleLogin(); });
 
 document.querySelectorAll('.tab-btn').forEach(button => {
     button.addEventListener('click', () => {
-        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-        document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-        
+        document.querySelectorAll('.tab-btn, .tab-content').forEach(el => el.classList.remove('active'));
         button.classList.add('active');
-        const targetId = button.getAttribute('data-target');
-        document.getElementById(targetId).classList.add('active');
+        document.getElementById(button.getAttribute('data-target')).classList.add('active');
     });
 });
 
-// Verify if a session key is running on memory initialization
 verifyBootSession();
