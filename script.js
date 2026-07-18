@@ -493,7 +493,7 @@ async function runScreener() {
             <div class="wl-right">
                 <div class="wl-price-info">
                     <span class="wl-price">${item.price.toLocaleString('en-US')}</span>
-                    <span class="wl-change text-green">High Value/Vol</span>
+                    <span class="wl-change text-green">Current Price</span>
                 </div>
             </div>
         `;
