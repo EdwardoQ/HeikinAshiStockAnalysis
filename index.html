@@ -8,10 +8,42 @@
     <style>
         body { 
             font-family: sans-serif; background-color: #121212; color: white; 
-            margin: 0; padding: 20px; height: 100vh; box-sizing: border-box;
+            margin: 0; padding: 0; height: 100vh; box-sizing: border-box;
             display: flex; flex-direction: column;
         }
-        h2 { margin-top: 0; margin-bottom: 10px; color: #26a69a; }
+        
+        /* --- NEW: FULL SCREEN LOGIN GATEWAY --- */
+        #login-screen {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background-color: #121212; display: flex; align-items: center;
+            justify-content: center; z-index: 9999;
+        }
+        .login-card {
+            background-color: #1e1e1e; border: 1px solid #2b2b43;
+            border-radius: 8px; padding: 30px; width: 100%; max-width: 360px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.5); display: flex; flex-direction: column; gap: 15px;
+        }
+        .login-card h3 { margin: 0 0 5px 0; color: #26a69a; text-align: center; font-size: 22px; }
+        .login-card p { margin: 0; font-size: 13px; color: #888; text-align: center; }
+        .input-group { display: flex; flex-direction: column; gap: 5px; }
+        .input-group label { font-size: 12px; color: #d1d4dc; font-weight: bold; }
+        .login-btn-row { display: flex; gap: 10px; margin-top: 5px; }
+        .login-btn-row button { flex: 1; }
+
+        /* --- MAIN APPLICATION CONTAINER --- */
+        #main-app {
+            display: none; /* Controlled by JS upon successful authentication */
+            flex-direction: column; flex-grow: 1; padding: 20px; height: 100vh; box-sizing: border-box;
+        }
+
+        h2 { margin-top: 0; margin-bottom: 5px; color: #26a69a; }
+        
+        /* Account Top Bar Navigation */
+        .account-bar {
+            display: flex; justify-content: space-between; align-items: center;
+            background-color: #1e1e1e; padding: 8px 15px; border-radius: 4px;
+            border: 1px solid #2b2b43; margin-bottom: 15px; font-size: 14px;
+        }
         
         .tabs { display: flex; gap: 10px; margin-bottom: 15px; border-bottom: 1px solid #2b2b43; padding-bottom: 10px; }
         .tab-btn { background: none; color: #d1d4dc; border: none; font-size: 16px; cursor: pointer; padding: 10px 20px; border-radius: 4px; transition: background 0.2s; }
@@ -22,7 +54,9 @@
 
         .controls { display: flex; flex-wrap: wrap; gap: 15px; align-items: center; margin-bottom: 15px; }
         input, select { padding: 10px; font-size: 14px; border: 1px solid #2b2b43; background-color: #121212; color: white; border-radius: 4px; }
-        input { text-transform: uppercase; }
+        input[type="text"], input[type="password"] { text-transform: none; }
+        #stock-input { text-transform: uppercase; }
+        
         button.action-btn { padding: 10px 15px; font-size: 14px; background-color: #26a69a; color: white; border: none; border-radius: 4px; cursor: pointer; }
         button.action-btn:hover { background-color: #2bbbb0; }
         
@@ -47,7 +81,6 @@
         .wl-ticker-info { display: flex; flex-direction: column; gap: 6px; }
         .wl-ticker-name { font-size: 16px; font-weight: bold; }
         
-        /* NEW: Watchlist MTF Matrix Styles */
         .wl-mtf { display: flex; gap: 8px; font-size: 11px; background-color: #1e1e1e; padding: 4px 8px; border-radius: 4px; border: 1px solid #2b2b43; width: fit-content; }
         
         .ha-badge { font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: bold; width: fit-content; }
@@ -65,71 +98,101 @@
     </style>
 </head>
 <body>
-    <h2>Heikin Ashi Stock Tracker (10-15 minute delay ⚠️)</h2>
-    
-    <div class="tabs">
-        <button class="tab-btn active" data-target="chart-view">Chart</button>
-        <button class="tab-btn" data-target="watchlist-view">Watchlist</button>
-        <button class="tab-btn" data-target="screener-view">HA Screener</button>
+
+    <div id="login-screen">
+        <div class="login-card">
+            <h3>Secure Gateway</h3>
+            <p>Enter credentials to access your terminal workspace.</p>
+            
+            <div class="input-group">
+                <label for="auth-username">Username</label>
+                <input type="text" id="auth-username" placeholder="Enter Username">
+            </div>
+            
+            <div class="input-group">
+                <label for="auth-password">Password</label>
+                <input type="password" id="auth-password" placeholder="Enter Password">
+            </div>
+            
+            <div class="login-btn-row">
+                <button id="auth-login-btn" class="action-btn" style="background-color: #2962FF;">Log In</button>
+                <button id="auth-register-btn" class="action-btn" style="background-color: #2b2b43; border: 1px solid #434651;">Register</button>
+            </div>
+        </div>
     </div>
 
-    <div id="chart-view" class="tab-content active">
-        <div class="controls">
-            <div><label>Ticker: </label><input type="text" id="stock-input" placeholder="e.g. GOTO" value="" style="width: 100px;"></div>
-            <div><label>Style: </label><select id="chart-type"><option value="heikin-ashi">Heikin Ashi</option><option value="normal">Normal</option></select></div>
-            <div>
-                <label>Timeframe: </label>
-                <select id="timeframe-select">
-                    <option value="1d|5y">1 Day (5 Years)</option><option value="1h|2y">1 Hour (2 Years)</option>
-                    <option value="15m|60d">15 Min (60 Days)</option><option value="5m|60d">5 Min (60 Days)</option>
-                </select>
-            </div>
-            <button id="search-btn" class="action-btn">Load Chart</button>
-        </div>
-
-        <div id="info-bar">
-            <div>Ticker: <span id="info-symbol" class="info-value">-</span></div>
-            <div>Time: <span id="info-time" class="info-value">-</span></div>
-            <div>O: <span id="info-open" class="info-value">-</span></div>
-            <div>H: <span id="info-high" class="info-value">-</span></div>
-            <div>L: <span id="info-low" class="info-value">-</span></div>
-            <div>C: <span id="info-close" class="info-value">-</span></div>
-            <div>V: <span id="info-volume" class="info-value">-</span></div>
-            
-            <div class="mtf-matrix">
-                <span>MTF Trend:</span>
-                <span id="mtf-w" title="Weekly HA">W: -</span>
-                <span id="mtf-d" title="Daily HA">D: -</span>
-                <span id="mtf-h" title="Hourly HA">H: -</span>
-            </div>
+    <div id="main-app">
+        <h2>Heikin Ashi Stock Tracker (10-15 minute delay)</h2>
+        
+        <div class="account-bar">
+            <div>Current Session: <span id="current-user-display" style="font-weight: bold; color: #26a69a;">-</span></div>
+            <button id="logout-btn" class="action-btn" style="background-color: #ef5350; padding: 6px 12px; font-size: 13px;">Log Out</button>
         </div>
         
-        <div id="chart-container"></div>
-    </div>
-
-    <div id="watchlist-view" class="tab-content">
-        <div class="list-container">
-            <p style="margin-top: 0; color: #d1d4dc;">Monitor your favorite stocks. Click anywhere on a card to load its detailed chart.</p>
-            <div class="watchlist-input-group">
-                <input type="text" id="new-watchlist-item" placeholder="Type ticker (e.g., GOTO)">
-                <button id="add-watchlist-btn" class="action-btn">Add to List</button>
-            </div>
-            <ul id="watchlist-ul" class="stock-list"></ul>
+        <div class="tabs">
+            <button class="tab-btn active" data-target="chart-view">Chart</button>
+            <button class="tab-btn" data-target="watchlist-view">Watchlist</button>
+            <button class="tab-btn" data-target="screener-view">HA Screener</button>
         </div>
-    </div>
 
-    <div id="screener-view" class="tab-content">
-        <div class="list-container">
-            <p style="margin-top: 0; color: #d1d4dc;">Find powerful trend reversals.</p>
-            <div style="margin-bottom: 20px; display: flex; align-items: center; gap: 15px;">
-                <select id="screener-strategy">
-                    <option value="reversal">Scan: Strong Bullish Reversal</option>
-                    <option value="doji">Scan: Bottom Indecision (Doji)</option>
-                </select>
-                <button id="run-screener-btn" class="action-btn" style="background-color: #2962FF;">Run Screener</button>
-                <span id="screener-status" style="font-size: 14px; color: #888;">Ready to scan.</span>
+        <div id="chart-view" class="tab-content active">
+            <div class="controls">
+                <div><label>Ticker: </label><input type="text" id="stock-input" placeholder="e.g. GOTO" style="width: 100px;"></div>
+                <div><label>Style: </label><select id="chart-type"><option value="heikin-ashi">Heikin Ashi</option><option value="normal">Normal</option></select></div>
+                <div>
+                    <label>Timeframe: </label>
+                    <select id="timeframe-select">
+                        <option value="1d|5y">1 Day (5 Years)</option><option value="1h|2y">1 Hour (2 Years)</option>
+                        <option value="15m|60d">15 Min (60 Days)</option><option value="5m|60d">5 Min (60 Days)</option>
+                    </select>
+                </div>
+                <button id="search-btn" class="action-btn">Load Chart</button>
             </div>
-            <ul id="screener-ul" class="stock-list"></ul>
+
+            <div id="info-bar">
+                <div>Ticker: <span id="info-symbol" class="info-value">-</span></div>
+                <div>Time: <span id="info-time" class="info-value">-</span></div>
+                <div>O: <span id="info-open" class="info-value">-</span></div>
+                <div>H: <span id="info-high" class="info-value">-</span></div>
+                <div>L: <span id="info-low" class="info-value">-</span></div>
+                <div>C: <span id="info-close" class="info-value">-</span></div>
+                <div>V: <span id="info-volume" class="info-value">-</span></div>
+                
+                <div class="mtf-matrix">
+                    <span>MTF Trend:</span>
+                    <span id="mtf-w" title="Weekly HA">W: -</span>
+                    <span id="mtf-d" title="Daily HA">D: -</span>
+                    <span id="mtf-h" title="Hourly HA">H: -</span>
+                </div>
+            </div>
+            
+            <div id="chart-container"></div>
+        </div>
+
+        <div id="watchlist-view" class="tab-content">
+            <div class="list-container">
+                <p style="margin-top: 0; color: #d1d4dc;">Monitor your favorite stocks. Click anywhere on a card to load its detailed chart.</p>
+                <div class="watchlist-input-group">
+                    <input type="text" id="new-watchlist-item" placeholder="Type ticker (e.g., GOTO)">
+                    <button id="add-watchlist-btn" class="action-btn">Add to List</button>
+                </div>
+                <ul id="watchlist-ul" class="stock-list"></ul>
+            </div>
+        </div>
+
+        <div id="screener-view" class="tab-content">
+            <div class="list-container">
+                <p style="margin-top: 0; color: #d1d4dc;">Scans Top 300+ highly liquid IDX stocks. Find powerful trend reversals.</p>
+                <div style="margin-bottom: 20px; display: flex; align-items: center; gap: 15px;">
+                    <select id="screener-strategy">
+                        <option value="reversal">Scan: Strong Bullish Reversal</option>
+                        <option value="doji">Scan: Bottom Indecision (Doji)</option>
+                    </select>
+                    <button id="run-screener-btn" class="action-btn" style="background-color: #2962FF;">Run Screener</button>
+                    <span id="screener-status" style="font-size: 14px; color: #888;">Ready to scan.</span>
+                </div>
+                <ul id="screener-ul" class="stock-list"></ul>
+            </div>
         </div>
     </div>
 
