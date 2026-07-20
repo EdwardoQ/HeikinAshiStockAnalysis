@@ -690,7 +690,7 @@ async function renderPortfolioUI() {
 }
 
 
-// --- 9. HEIKIN ASHI SCREENER ENGINE ---
+// --- 9. HEIKIN ASHI SCREENER ENGINE (WITH NEW TREND PROFILER) ---
 async function runScreener() {
     const ul = document.getElementById('screener-ul');
     const statusText = document.getElementById('screener-status');
@@ -701,13 +701,15 @@ async function runScreener() {
     let matchedStocks = []; 
     
     const microBatchSize = 5; 
+    // If the Golden Trend Profiler is selected, grab 1 FULL YEAR of historical data instead of 2 months!
+    const rangeToFetch = strategy === 'golden-reversal' ? '1y' : '2mo';
     
     for (let i = 0; i < IDX_TOP_STOCKS.length; i += microBatchSize) {
         const batch = IDX_TOP_STOCKS.slice(i, i + microBatchSize);
         statusText.textContent = `Scanning Mega-Universe... Safe Progress: ${i} / ${IDX_TOP_STOCKS.length} tickers`;
 
         const batchPromises = batch.map(async (ticker) => {
-            const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${ticker}.JK?interval=1d&range=2mo`)}`;
+            const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${ticker}.JK?interval=1d&range=${rangeToFetch}`)}`;
             try {
                 const response = await fetch(proxyUrl); 
                 const data = await response.json();
@@ -743,22 +745,53 @@ async function runScreener() {
                     if (haData[k].close < haData[k].open) { bearishStreak++; } else { break; }
                 }
 
+                // Count Golden Runs (5+ consecutive green days) over the entire fetched period
+                let goldenRuns = 0;
+                if (strategy === 'golden-reversal') {
+                    let currentGreen = 0;
+                    for (let k = 0; k < haData.length - 1; k++) {
+                        let isGreen = haData[k].close >= haData[k].open;
+                        if (isGreen) {
+                            currentGreen++;
+                        } else {
+                            if (currentGreen >= 5) {
+                                goldenRuns++;
+                            }
+                            currentGreen = 0;
+                        }
+                    }
+                    // Catch if a streak was happening exactly right before the current reversal
+                    if (currentGreen >= 5) goldenRuns++; 
+                }
+
+                // Require a minimum of 2 days dropping prior to today's action to count as a reversal setup
                 if (bearishStreak >= 2) {
                     const currentPrice = result.meta.regularMarketPrice || currentHA.close;
+                    // Trading Value = Price * Volume (Our Market Cap & Liquidity proxy indicator)
                     const tradingValue = currentPrice * stdData[stdData.length - 1].volume;
                     let matchFound = false;
 
-                    if (strategy === 'reversal' && currentHA.close > currentHA.open) matchFound = true;
+                    if (strategy === 'reversal' && currentHA.close > currentHA.open) {
+                        matchFound = true;
+                    }
                     else if (strategy === 'doji') {
                         const body = Math.abs(currentHA.close - currentHA.open);
                         const upperWick = currentHA.high - Math.max(currentHA.open, currentHA.close);
                         const lowerWick = Math.min(currentHA.open, currentHA.close) - currentHA.low;
                         const calcLen = currentHA.high - currentHA.low;
                         
-                        if (calcLen > 0 && body < (calcLen * 0.3) && upperWick > body && lowerWick > body) matchFound = true;
+                        if (calcLen > 0 && body < (calcLen * 0.3) && upperWick > body && lowerWick > body) {
+                            matchFound = true;
+                        }
+                    }
+                    // NEW: Is it a reversal? AND does it have >2 golden runs this year?
+                    else if (strategy === 'golden-reversal' && currentHA.close > currentHA.open && goldenRuns > 2) {
+                        matchFound = true;
                     }
 
-                    if (matchFound) matchedStocks.push({ ticker, price: currentPrice, tradeValue: tradingValue, streak: bearishStreak });
+                    if (matchFound) {
+                        matchedStocks.push({ ticker, price: currentPrice, tradeValue: tradingValue, streak: bearishStreak, goldenRuns: goldenRuns });
+                    }
                 }
             } catch (e) { 
                 // Skip gracefully
@@ -769,7 +802,13 @@ async function runScreener() {
         await new Promise(resolve => setTimeout(resolve, 400)); 
     }
 
-    matchedStocks.sort((a, b) => b.streak !== a.streak ? b.streak - a.streak : b.tradeValue - a.tradeValue);
+    // High Vol & Market Cap prioritization (Uses Trade Value proxy)
+    if (strategy === 'golden-reversal') {
+        matchedStocks.sort((a, b) => b.tradeValue - a.tradeValue);
+    } else {
+        matchedStocks.sort((a, b) => b.streak !== a.streak ? b.streak - a.streak : b.tradeValue - a.tradeValue);
+    }
+    
     statusText.textContent = `Scan complete. Evaluated ${IDX_TOP_STOCKS.length} tickers. Found ${matchedStocks.length} structural setups.`;
 
     if (matchedStocks.length === 0) {
@@ -780,12 +819,26 @@ async function runScreener() {
         const li = document.createElement('li'); li.className = 'stock-item';
         li.onclick = () => { fetchStockData(item.ticker); document.querySelector('[data-target="chart-view"]').click(); };
 
+        let strategyBadgeText = "";
+        let strategyClass = "neutral";
+        
+        if (strategy === 'reversal') {
+            strategyBadgeText = `REVERSED A ${item.streak}-DAY RED TREND`;
+            strategyClass = 'up';
+        } else if (strategy === 'doji') {
+            strategyBadgeText = `BOTTOM DOJI AFTER ${item.streak}-DAY DROP`;
+            strategyClass = 'neutral';
+        } else if (strategy === 'golden-reversal') {
+            strategyBadgeText = `REVERSAL + ${item.goldenRuns} GOLDEN RUNS`;
+            strategyClass = 'up'; // Highlights it in green!
+        }
+
         li.innerHTML = `
             <div class="wl-left">
                 <div class="wl-avatar">${item.ticker.substring(0, 2)}</div>
                 <div class="wl-ticker-info">
                     <span class="wl-ticker-name">${item.ticker}</span>
-                    <span class="ha-badge ${strategy === 'reversal' ? 'up' : 'neutral'}">${strategy === 'reversal' ? `REVERSED A ${item.streak}-DAY RED TREND` : `BOTTOM DOJI AFTER ${item.streak}-DAY DROP`}</span>
+                    <span class="ha-badge ${strategyClass}">${strategyBadgeText}</span>
                 </div>
             </div>
             <div class="wl-right">
