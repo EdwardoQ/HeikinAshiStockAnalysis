@@ -1,7 +1,8 @@
 let cachedStandardData = [];
 let currentSymbolDisplay = "-"; 
 
-// --- 0. GLOBAL IDX MASTER DATABASE (Used strictly for the Screener now) ---
+// --- 0. GLOBAL IDX MASTER DATABASE ---
+// IMPORTANT: Keep your massive list of 900+ stocks here! I shortened it here to save space.
 const IDX_TOP_STOCKS = [
     'AALI','ABBA','ABMM','ACES','ACST','ADCP','ADES','ADHI','ADMG','ADRO','AGAR','AGRO','AGRS','AHAP','AISA','AKKU','AKPI','AKRA','AKSI','ALDO','ALKA','ALMI','ALTO','AMAG','AMAN','AMAR','AMFG','AMIN','AMMN','AMOR','AMRT','ANDI','ANJT','ANTM','APEX','APII','APLI','APLN','ARGO','ARII','ARKA','ARKO','ARNA','ARTA','ARTI','ARTO','ASBI','ASGR','ASHA','ASII','ASJT','ASLC','ASMI','ASRI','ASSA','ATAP','ATIC','AUTO','AWAR','AWST','AXIO','AYLS','AZRX',
     'BACA','BAJA','BALI','BAPA','BAPI','BATA','BATP','BAYU','BBCA','BBEK','BBHI','BBKP','BBLD','BBMD','BBNI','BBRI','BBRM','BBSI','BBSS','BBTN','BBYB','BCAP','BCIC','BCIP','BDMN','BDTX','BEKS','BELI','BELL','BESS','BEST','BFIN','BGTG','BHAIT','BIKA','BIMA','BINA','BINI','BIPI','BIRD','BISI','BJBR','BJTM','BKDP','BKSL','BKSW','BLTA','BLTZ','BLUE','BMAS','BMRI','BMSR','BMTR','BNBA','BNBR','BNGA','BNII','BNLI','BOPP','BORL','BOSS','BOTS','BPFI','BPII','BPRS','BPSM','BRAM','BREN','BRIS','BRMS','BRNA','BRPT','BSDE','BSIM','BSSR','BSWD','BTEK','BTEL','BTPN','BTPS','BUDI','BUKA','BUKK','BULL','BUMI','BUVA','BVKM','BWPT',
@@ -29,7 +30,6 @@ const IDX_TOP_STOCKS = [
     'ZATA','ZBRA','ZINC','ZONE','ZYRX'
 ];
 
-
 // --- 0.5 CUSTOM APP NOTIFICATION ENGINE ---
 function showAppAlert(title, message, isError = true) {
     document.getElementById('custom-alert-title').textContent = title;
@@ -40,7 +40,6 @@ function showAppAlert(title, message, isError = true) {
 document.getElementById('custom-alert-close').addEventListener('click', () => {
     document.getElementById('custom-alert-modal').style.display = 'none';
 });
-
 
 // --- 1. LOCAL VAULT SECURITY LOGIC ---
 let currentUser = sessionStorage.getItem('idx_logged_user') || null;
@@ -58,7 +57,6 @@ function handleLogin() {
     if (usersDb[userIn] !== passIn) {
         return showAppAlert("Invalid Login", "Incorrect account password. Try again.");
     }
-
     executeSessionLogin(userIn);
 }
 
@@ -150,7 +148,7 @@ const volumeSeries = chart.addHistogramSeries({ priceFormat: { type: 'volume' },
 candleSeries.priceScale().applyOptions({ scaleMargins: { top: 0.1, bottom: 0.25 } });
 volumeSeries.priceScale().applyOptions({ scaleMargins: { top: 0.8, bottom: 0 } });
 
-// --- 3. HEIKIN ASHI MATHEMATICAL ALGORITHM ---
+// --- 3. HEIKIN ASHI MATHEMATICAL ALGORITHMS ---
 function calculateHeikinAshi(standardData) {
     let haData = [];
     for (let i = 0; i < standardData.length; i++) {
@@ -171,6 +169,65 @@ function calculateHeikinAshi(standardData) {
     }
     return haData;
 }
+
+// UPGRADED: BACKTESTING WINRATE ENGINE WITH AVG PROFIT/LOSS
+function calculateStrategyWinRate(stdData, haData) {
+    let winningTrades = 0;
+    let losingTrades = 0;
+    let totalTrades = 0;
+    let inPosition = false;
+    let buyPrice = 0;
+    
+    let totalProfitPct = 0;
+    let totalLossPct = 0;
+
+    // Need at least 2 days to compare previous HA to current HA
+    for (let i = 1; i < haData.length; i++) {
+        let prevHA = haData[i - 1];
+        let currHA = haData[i];
+        let currStd = stdData[i];
+
+        let prevIsRed = prevHA.close < prevHA.open;
+        let currIsGreen = currHA.close >= currHA.open;
+        
+        let prevIsGreen = prevHA.close >= prevHA.open;
+        let currIsRed = currHA.close < currHA.open;
+
+        // Buy Condition: HA reversed to Bullish
+        if (!inPosition && prevIsRed && currIsGreen) {
+            inPosition = true;
+            buyPrice = currStd.close; // Bought at the real market close price
+        } 
+        // Sell Condition: HA reversed to Bearish
+        else if (inPosition && prevIsGreen && currIsRed) {
+            inPosition = false;
+            totalTrades++;
+            
+            // Calculate exact return % for this trade
+            let tradeReturnPct = ((currStd.close - buyPrice) / buyPrice) * 100;
+
+            if (currStd.close > buyPrice) {
+                winningTrades++; 
+                totalProfitPct += tradeReturnPct;
+            } else {
+                losingTrades++;
+                totalLossPct += tradeReturnPct; // Note: this will naturally be a negative number
+            }
+        }
+    }
+    
+    let rate = totalTrades === 0 ? 0 : ((winningTrades / totalTrades) * 100);
+    let avgProfit = winningTrades === 0 ? 0 : (totalProfitPct / winningTrades);
+    let avgLoss = losingTrades === 0 ? 0 : (totalLossPct / losingTrades);
+
+    return {
+        rate: rate.toFixed(0),
+        total: totalTrades,
+        avgProfit: avgProfit.toFixed(2),
+        avgLoss: avgLoss.toFixed(2)
+    };
+}
+
 
 // --- 4. DATA HOVER ENGINE LOGIC ---
 function updateInfoBar(candle, volume, rawTime) {
@@ -276,7 +333,6 @@ async function fetchStockData(overrideSymbol = null) {
     let ticker = rawInput.replace('.JK', '');
     let symbol = rawInput.endsWith('.JK') ? rawInput : rawInput + '.JK';
     
-    // UX Feedback
     inputElement.value = 'Loading...';
     searchBtn.disabled = true;
 
@@ -288,7 +344,6 @@ async function fetchStockData(overrideSymbol = null) {
         const response = await fetch(proxyUrl);
         const data = await response.json();
         
-        // REAL-TIME API REJECTION LOGIC
         if (!data.chart || !data.chart.result || data.chart.error) { 
             inputElement.value = rawInput; 
             searchBtn.disabled = false;
@@ -305,7 +360,6 @@ async function fetchStockData(overrideSymbol = null) {
             return showAppAlert("Data Error", `No historical data found for ${symbol} on this timeframe.`); 
         }
 
-        // If we made it here, the stock is completely VALID. Load the chart!
         currentSymbolDisplay = ticker; 
         fetchMTFData(symbol);
         candleSeries.setData([]); volumeSeries.setData([]); cachedStandardData = [];
@@ -387,7 +441,7 @@ async function renderWatchlistUI() {
     const results = [];
     for (const ticker of myWatchlist) {
         const symbol = ticker + '.JK';
-        const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=1mo`)}`;
+        const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=6mo`)}`;
         try {
             const response = await fetch(proxyUrl);
             const data = await response.json();
@@ -402,7 +456,15 @@ async function renderWatchlistUI() {
             const change = currentPrice - prevClose;
             const haData = calculateHeikinAshi(stdData);
             const isHAUp = haData[haData.length - 1].close >= haData[haData.length - 1].open;
-            results.push({ ticker, currentPrice, change, changePct: (change / prevClose) * 100, isHAUp, error: false });
+            
+            // Calculate Strategy Winrate and Avg Profit/Loss
+            const winStats = calculateStrategyWinRate(stdData, haData);
+
+            results.push({ 
+                ticker, currentPrice, change, changePct: (change / prevClose) * 100, isHAUp, 
+                winRate: winStats.rate, totalTrades: winStats.total,
+                avgProfit: winStats.avgProfit, avgLoss: winStats.avgLoss, error: false 
+            });
         } catch (e) { 
             results.push({ ticker, error: true }); 
         }
@@ -428,8 +490,12 @@ async function renderWatchlistUI() {
                         <div style="display:flex; align-items:center; gap:10px;">
                             <span class="wl-ticker-name">${item.ticker}</span>
                             <span class="ha-badge ${item.isHAUp ? 'up' : 'down'}">${item.isHAUp ? 'DAILY HA: BULLISH' : 'DAILY HA: BEARISH'}</span>
+                            <span class="ha-badge neutral" title="6-Month Historic Strategy Winrate">WINRATE: ${item.winRate}% (${item.totalTrades} Trades)</span>
                         </div>
-                        <div class="wl-mtf">
+                        <div style="font-size: 11px; color: #888; margin-top: 2px;">
+                            Avg Win: <span class="text-green">+${item.avgProfit}%</span> | Avg Loss: <span class="text-red">${item.avgLoss}%</span>
+                        </div>
+                        <div class="wl-mtf" style="margin-top: 2px;">
                             <span id="wl-w-${item.ticker}">W: ⏳</span>
                             <span>D: ${item.isHAUp ? '🟢' : '🔴'}</span>
                             <span id="wl-h-${item.ticker}">H: ⏳</span>
@@ -464,7 +530,6 @@ async function renderWatchlistUI() {
     fetchWatchlistMTF();
 }
 
-// UPGRADED: Real-time API Validation before adding
 async function addWatchlistItem() {
     const input = document.getElementById('new-watchlist-item');
     const btn = document.getElementById('add-watchlist-btn');
@@ -476,7 +541,6 @@ async function addWatchlistItem() {
         return showAppAlert("Duplicate", `${ticker} is already in your watchlist.`);
     }
 
-    // UX Feedback
     btn.textContent = "Verifying...";
     btn.disabled = true;
 
@@ -487,13 +551,11 @@ async function addWatchlistItem() {
         const response = await fetch(proxyUrl);
         const data = await response.json();
         
-        // REAL-TIME API REJECTION
         if (!data.chart || data.chart.error || !data.chart.result) {
             btn.textContent = "Add to List"; btn.disabled = false;
             return showAppAlert("Invalid Stock", `The ticker '${ticker}' could not be verified on the live market.`);
         }
 
-        // Successfully Validated!
         myWatchlist.push(ticker); 
         input.value = ''; 
         btn.textContent = "Add to List"; btn.disabled = false;
@@ -520,7 +582,6 @@ function savePortfolio() {
     localStorage.setItem(`idx_portfolio_${currentUser}`, JSON.stringify(myPortfolio));
 }
 
-// UPGRADED: Real-time API Validation before adding
 async function addPortfolioItem() {
     const tickerInp = document.getElementById('new-portfolio-ticker');
     const priceInp = document.getElementById('new-portfolio-price');
@@ -535,7 +596,6 @@ async function addPortfolioItem() {
         return showAppAlert("Input Error", "Please enter a valid stock ticker and an average purchase price.");
     }
 
-    // UX Feedback
     btn.textContent = "Verifying Ticker...";
     btn.disabled = true;
 
@@ -546,13 +606,11 @@ async function addPortfolioItem() {
         const response = await fetch(proxyUrl);
         const data = await response.json();
         
-        // REAL-TIME API REJECTION
         if (!data.chart || data.chart.error || !data.chart.result) {
             btn.textContent = "Save Position"; btn.disabled = false;
             return showAppAlert("Invalid Stock", `The ticker '${ticker}' could not be verified on the live market.`);
         }
 
-        // Successfully Validated!
         const existingIdx = myPortfolio.findIndex(p => p.ticker === ticker);
         if (existingIdx >= 0) {
             myPortfolio[existingIdx].avgPrice = avgPrice;
@@ -585,7 +643,7 @@ async function renderPortfolioUI() {
     const results = [];
     for (const item of myPortfolio) {
         const symbol = item.ticker + '.JK';
-        const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=1mo`)}`;
+        const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=6mo`)}`;
         try {
             const response = await fetch(proxyUrl);
             const data = await response.json();
@@ -610,6 +668,9 @@ async function renderPortfolioUI() {
             const currentHA = haData[haData.length - 1];
             const isHAUp = currentHA.close >= currentHA.open;
             const last5HA = haData.slice(Math.max(haData.length - 5, 0));
+            
+            // Calculate Strategy Winrate and Avg Profit/Loss
+            const winStats = calculateStrategyWinRate(stdData, haData);
 
             let warningBadge = '';
             const bodyLength = Math.abs(currentHA.close - currentHA.open);
@@ -628,7 +689,10 @@ async function renderPortfolioUI() {
             const plAmount = currentValue - totalCost;
             const plPct = ((currentPrice - item.avgPrice) / item.avgPrice) * 100;
 
-            results.push({ ...item, currentPrice, plAmount, plPct, isHAUp, last5HA, warningBadge, safeLots, error: false });
+            results.push({ 
+                ...item, currentPrice, plAmount, plPct, isHAUp, last5HA, warningBadge, safeLots, 
+                winRate: winStats.rate, totalTrades: winStats.total, avgProfit: winStats.avgProfit, avgLoss: winStats.avgLoss, error: false 
+            });
         } catch (e) {
             results.push({ ...item, error: true });
         }
@@ -662,8 +726,12 @@ async function renderPortfolioUI() {
                         <div style="display:flex; align-items:center; gap:10px;">
                             <span class="wl-ticker-name">${item.ticker}</span>
                             ${item.warningBadge}
+                            <span class="ha-badge neutral" title="6-Month Historic Strategy Winrate">WINRATE: ${item.winRate}% (${item.totalTrades} Trades)</span>
                         </div>
-                        <div class="wl-mtf" style="background: none; border: none; padding: 0; display: flex; align-items: center; gap: 10px;">
+                        <div style="font-size: 11px; color: #888; margin-top: 2px;">
+                            Avg Win: <span class="text-green">+${item.avgProfit}%</span> | Avg Loss: <span class="text-red">${item.avgLoss}%</span>
+                        </div>
+                        <div class="wl-mtf" style="background: none; border: none; padding: 0; display: flex; align-items: center; gap: 10px; margin-top: 2px;">
                             <span style="color: #888;">Avg: ${item.avgPrice.toLocaleString('en-US')} | Lots: ${item.safeLots}</span>
                             ${miniChartHTML}
                         </div>
@@ -690,7 +758,7 @@ async function renderPortfolioUI() {
 }
 
 
-// --- 9. HEIKIN ASHI SCREENER ENGINE (WITH NEW TREND PROFILER) ---
+// --- 9. HEIKIN ASHI SCREENER ENGINE (WITH NEW TREND PROFILER & WINRATE PRIORITIZATION) ---
 async function runScreener() {
     const ul = document.getElementById('screener-ul');
     const statusText = document.getElementById('screener-status');
@@ -701,7 +769,6 @@ async function runScreener() {
     let matchedStocks = []; 
     
     const microBatchSize = 5; 
-    // If the Golden Trend Profiler is selected, grab 1 FULL YEAR of historical data instead of 2 months!
     const rangeToFetch = strategy === 'golden-reversal' ? '1y' : '2mo';
     
     for (let i = 0; i < IDX_TOP_STOCKS.length; i += microBatchSize) {
@@ -740,12 +807,14 @@ async function runScreener() {
                 const haData = calculateHeikinAshi(stdData);
                 const currentHA = haData[haData.length - 1];
                 
+                // WINRATE ENGINE RUN
+                const winStats = calculateStrategyWinRate(stdData, haData);
+                
                 let bearishStreak = 0;
                 for (let k = haData.length - 2; k >= 0; k--) {
                     if (haData[k].close < haData[k].open) { bearishStreak++; } else { break; }
                 }
 
-                // Count Golden Runs (5+ consecutive green days) over the entire fetched period
                 let goldenRuns = 0;
                 if (strategy === 'golden-reversal') {
                     let currentGreen = 0;
@@ -760,14 +829,11 @@ async function runScreener() {
                             currentGreen = 0;
                         }
                     }
-                    // Catch if a streak was happening exactly right before the current reversal
                     if (currentGreen >= 5) goldenRuns++; 
                 }
 
-                // Require a minimum of 2 days dropping prior to today's action to count as a reversal setup
                 if (bearishStreak >= 2) {
                     const currentPrice = result.meta.regularMarketPrice || currentHA.close;
-                    // Trading Value = Price * Volume (Our Market Cap & Liquidity proxy indicator)
                     const tradingValue = currentPrice * stdData[stdData.length - 1].volume;
                     let matchFound = false;
 
@@ -784,13 +850,19 @@ async function runScreener() {
                             matchFound = true;
                         }
                     }
-                    // NEW: Is it a reversal? AND does it have >2 golden runs this year?
                     else if (strategy === 'golden-reversal' && currentHA.close > currentHA.open && goldenRuns > 2) {
                         matchFound = true;
                     }
 
                     if (matchFound) {
-                        matchedStocks.push({ ticker, price: currentPrice, tradeValue: tradingValue, streak: bearishStreak, goldenRuns: goldenRuns });
+                        matchedStocks.push({ 
+                            ticker, price: currentPrice, tradeValue: tradingValue, 
+                            streak: bearishStreak, goldenRuns: goldenRuns,
+                            winRate: parseFloat(winStats.rate), 
+                            totalTrades: winStats.total,
+                            avgProfit: winStats.avgProfit,
+                            avgLoss: winStats.avgLoss
+                        });
                     }
                 }
             } catch (e) { 
@@ -802,12 +874,8 @@ async function runScreener() {
         await new Promise(resolve => setTimeout(resolve, 400)); 
     }
 
-    // High Vol & Market Cap prioritization (Uses Trade Value proxy)
-    if (strategy === 'golden-reversal') {
-        matchedStocks.sort((a, b) => b.tradeValue - a.tradeValue);
-    } else {
-        matchedStocks.sort((a, b) => b.streak !== a.streak ? b.streak - a.streak : b.tradeValue - a.tradeValue);
-    }
+    // UPGRADED SORTING: Always prioritize highest Win Rate first. If tied, fallback to High Liquidity/Volume.
+    matchedStocks.sort((a, b) => b.winRate - a.winRate || b.tradeValue - a.tradeValue);
     
     statusText.textContent = `Scan complete. Evaluated ${IDX_TOP_STOCKS.length} tickers. Found ${matchedStocks.length} structural setups.`;
 
@@ -830,15 +898,21 @@ async function runScreener() {
             strategyClass = 'neutral';
         } else if (strategy === 'golden-reversal') {
             strategyBadgeText = `REVERSAL + ${item.goldenRuns} GOLDEN RUNS`;
-            strategyClass = 'up'; // Highlights it in green!
+            strategyClass = 'up';
         }
 
         li.innerHTML = `
             <div class="wl-left">
                 <div class="wl-avatar">${item.ticker.substring(0, 2)}</div>
                 <div class="wl-ticker-info">
-                    <span class="wl-ticker-name">${item.ticker}</span>
-                    <span class="ha-badge ${strategyClass}">${strategyBadgeText}</span>
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <span class="wl-ticker-name">${item.ticker}</span>
+                        <span class="ha-badge ${strategyClass}">${strategyBadgeText}</span>
+                        <span class="ha-badge neutral" title="Historic Strategy Winrate">WINRATE: ${item.winRate}% (${item.totalTrades} Trades)</span>
+                    </div>
+                    <div style="font-size: 11px; color: #888; margin-top: 2px;">
+                        Avg Win: <span class="text-green">+${item.avgProfit}%</span> | Avg Loss: <span class="text-red">${item.avgLoss}%</span>
+                    </div>
                 </div>
             </div>
             <div class="wl-right">
@@ -859,7 +933,6 @@ document.getElementById('stock-input').addEventListener('keypress', (e) => { if 
 document.getElementById('chart-type').addEventListener('change', renderChart);
 document.getElementById('timeframe-select').addEventListener('change', () => fetchStockData());
 
-// Custom Portfolio Modal Controls
 document.getElementById('open-portfolio-modal-btn').addEventListener('click', () => {
     document.getElementById('new-portfolio-ticker').value = '';
     document.getElementById('new-portfolio-price').value = '';
