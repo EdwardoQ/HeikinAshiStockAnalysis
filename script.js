@@ -2,7 +2,7 @@ let cachedStandardData = [];
 let currentSymbolDisplay = "-"; 
 
 // --- 0. GLOBAL IDX MASTER DATABASE ---
-// IMPORTANT: Keep your massive list of 900+ stocks here! I shortened it here to save space.
+// IMPORTANT: Keep your massive list of 900+ stocks here! I shortened it to save space.
 const IDX_TOP_STOCKS = [
     'AALI','ABBA','ABMM','ACES','ACST','ADCP','ADES','ADHI','ADMG','ADRO','AGAR','AGRO','AGRS','AHAP','AISA','AKKU','AKPI','AKRA','AKSI','ALDO','ALKA','ALMI','ALTO','AMAG','AMAN','AMAR','AMFG','AMIN','AMMN','AMOR','AMRT','ANDI','ANJT','ANTM','APEX','APII','APLI','APLN','ARGO','ARII','ARKA','ARKO','ARNA','ARTA','ARTI','ARTO','ASBI','ASGR','ASHA','ASII','ASJT','ASLC','ASMI','ASRI','ASSA','ATAP','ATIC','AUTO','AWAR','AWST','AXIO','AYLS','AZRX',
     'BACA','BAJA','BALI','BAPA','BAPI','BATA','BATP','BAYU','BBCA','BBEK','BBHI','BBKP','BBLD','BBMD','BBNI','BBRI','BBRM','BBSI','BBSS','BBTN','BBYB','BCAP','BCIC','BCIP','BDMN','BDTX','BEKS','BELI','BELL','BESS','BEST','BFIN','BGTG','BHAIT','BIKA','BIMA','BINA','BINI','BIPI','BIRD','BISI','BJBR','BJTM','BKDP','BKSL','BKSW','BLTA','BLTZ','BLUE','BMAS','BMRI','BMSR','BMTR','BNBA','BNBR','BNGA','BNII','BNLI','BOPP','BORL','BOSS','BOTS','BPFI','BPII','BPRS','BPSM','BRAM','BREN','BRIS','BRMS','BRNA','BRPT','BSDE','BSIM','BSSR','BSWD','BTEK','BTEL','BTPN','BTPS','BUDI','BUKA','BUKK','BULL','BUMI','BUVA','BVKM','BWPT',
@@ -148,7 +148,7 @@ const volumeSeries = chart.addHistogramSeries({ priceFormat: { type: 'volume' },
 candleSeries.priceScale().applyOptions({ scaleMargins: { top: 0.1, bottom: 0.25 } });
 volumeSeries.priceScale().applyOptions({ scaleMargins: { top: 0.8, bottom: 0 } });
 
-// --- 3. HEIKIN ASHI MATHEMATICAL ALGORITHMS ---
+// --- 3. MATHEMATICAL ALGORITHMS ---
 function calculateHeikinAshi(standardData) {
     let haData = [];
     for (let i = 0; i < standardData.length; i++) {
@@ -170,7 +170,16 @@ function calculateHeikinAshi(standardData) {
     return haData;
 }
 
-// UPGRADED: BACKTESTING WINRATE ENGINE WITH AVG PROFIT/LOSS
+// NEW: Moving Average Calculator
+function getMovingAverage(data, period) {
+    if (data.length < period) return null;
+    let sum = 0;
+    for (let i = data.length - period; i < data.length; i++) {
+        sum += data[i].close;
+    }
+    return sum / period;
+}
+
 function calculateStrategyWinRate(stdData, haData) {
     let winningTrades = 0;
     let losingTrades = 0;
@@ -181,7 +190,6 @@ function calculateStrategyWinRate(stdData, haData) {
     let totalProfitPct = 0;
     let totalLossPct = 0;
 
-    // Need at least 2 days to compare previous HA to current HA
     for (let i = 1; i < haData.length; i++) {
         let prevHA = haData[i - 1];
         let currHA = haData[i];
@@ -193,17 +201,14 @@ function calculateStrategyWinRate(stdData, haData) {
         let prevIsGreen = prevHA.close >= prevHA.open;
         let currIsRed = currHA.close < currHA.open;
 
-        // Buy Condition: HA reversed to Bullish
         if (!inPosition && prevIsRed && currIsGreen) {
             inPosition = true;
-            buyPrice = currStd.close; // Bought at the real market close price
+            buyPrice = currStd.close; 
         } 
-        // Sell Condition: HA reversed to Bearish
         else if (inPosition && prevIsGreen && currIsRed) {
             inPosition = false;
             totalTrades++;
             
-            // Calculate exact return % for this trade
             let tradeReturnPct = ((currStd.close - buyPrice) / buyPrice) * 100;
 
             if (currStd.close > buyPrice) {
@@ -211,7 +216,7 @@ function calculateStrategyWinRate(stdData, haData) {
                 totalProfitPct += tradeReturnPct;
             } else {
                 losingTrades++;
-                totalLossPct += tradeReturnPct; // Note: this will naturally be a negative number
+                totalLossPct += tradeReturnPct; 
             }
         }
     }
@@ -457,11 +462,17 @@ async function renderWatchlistUI() {
             const haData = calculateHeikinAshi(stdData);
             const isHAUp = haData[haData.length - 1].close >= haData[haData.length - 1].open;
             
-            // Calculate Strategy Winrate and Avg Profit/Loss
+            // Calculate Moving Averages
+            const ma5 = getMovingAverage(stdData, 5);
+            const ma20 = getMovingAverage(stdData, 20);
+            const overMA5 = ma5 ? currentPrice > ma5 : false;
+            const overMA20 = ma20 ? currentPrice > ma20 : false;
+
             const winStats = calculateStrategyWinRate(stdData, haData);
 
             results.push({ 
                 ticker, currentPrice, change, changePct: (change / prevClose) * 100, isHAUp, 
+                overMA5, overMA20,
                 winRate: winStats.rate, totalTrades: winStats.total,
                 avgProfit: winStats.avgProfit, avgLoss: winStats.avgLoss, error: false 
             });
@@ -491,6 +502,8 @@ async function renderWatchlistUI() {
                             <span class="wl-ticker-name">${item.ticker}</span>
                             <span class="ha-badge ${item.isHAUp ? 'up' : 'down'}">${item.isHAUp ? 'DAILY HA: BULLISH' : 'DAILY HA: BEARISH'}</span>
                             <span class="ha-badge neutral" title="6-Month Historic Strategy Winrate">WINRATE: ${item.winRate}% (${item.totalTrades} Trades)</span>
+                            <span class="ha-badge ${item.overMA5 ? 'up' : 'down'}" title="Price vs MA5">MA5: ${item.overMA5 ? 'ABOVE' : 'BELOW'}</span>
+                            <span class="ha-badge ${item.overMA20 ? 'up' : 'down'}" title="Price vs MA20">MA20: ${item.overMA20 ? 'ABOVE' : 'BELOW'}</span>
                         </div>
                         <div style="font-size: 11px; color: #888; margin-top: 2px;">
                             Avg Win: <span class="text-green">+${item.avgProfit}%</span> | Avg Loss: <span class="text-red">${item.avgLoss}%</span>
@@ -669,7 +682,12 @@ async function renderPortfolioUI() {
             const isHAUp = currentHA.close >= currentHA.open;
             const last5HA = haData.slice(Math.max(haData.length - 5, 0));
             
-            // Calculate Strategy Winrate and Avg Profit/Loss
+            // Calculate Moving Averages
+            const ma5 = getMovingAverage(stdData, 5);
+            const ma20 = getMovingAverage(stdData, 20);
+            const overMA5 = ma5 ? currentPrice > ma5 : false;
+            const overMA20 = ma20 ? currentPrice > ma20 : false;
+            
             const winStats = calculateStrategyWinRate(stdData, haData);
 
             let warningBadge = '';
@@ -691,6 +709,7 @@ async function renderPortfolioUI() {
 
             results.push({ 
                 ...item, currentPrice, plAmount, plPct, isHAUp, last5HA, warningBadge, safeLots, 
+                overMA5, overMA20,
                 winRate: winStats.rate, totalTrades: winStats.total, avgProfit: winStats.avgProfit, avgLoss: winStats.avgLoss, error: false 
             });
         } catch (e) {
@@ -727,6 +746,8 @@ async function renderPortfolioUI() {
                             <span class="wl-ticker-name">${item.ticker}</span>
                             ${item.warningBadge}
                             <span class="ha-badge neutral" title="6-Month Historic Strategy Winrate">WINRATE: ${item.winRate}% (${item.totalTrades} Trades)</span>
+                            <span class="ha-badge ${item.overMA5 ? 'up' : 'down'}" title="Price vs MA5">MA5: ${item.overMA5 ? 'ABOVE' : 'BELOW'}</span>
+                            <span class="ha-badge ${item.overMA20 ? 'up' : 'down'}" title="Price vs MA20">MA20: ${item.overMA20 ? 'ABOVE' : 'BELOW'}</span>
                         </div>
                         <div style="font-size: 11px; color: #888; margin-top: 2px;">
                             Avg Win: <span class="text-green">+${item.avgProfit}%</span> | Avg Loss: <span class="text-red">${item.avgLoss}%</span>
@@ -758,7 +779,7 @@ async function renderPortfolioUI() {
 }
 
 
-// --- 9. HEIKIN ASHI SCREENER ENGINE (WITH NEW TREND PROFILER & WINRATE PRIORITIZATION) ---
+// --- 9. HEIKIN ASHI SCREENER ENGINE ---
 async function runScreener() {
     const ul = document.getElementById('screener-ul');
     const statusText = document.getElementById('screener-status');
@@ -807,7 +828,13 @@ async function runScreener() {
                 const haData = calculateHeikinAshi(stdData);
                 const currentHA = haData[haData.length - 1];
                 
-                // WINRATE ENGINE RUN
+                // Calculate Moving Averages
+                const currentPrice = result.meta.regularMarketPrice || currentHA.close;
+                const ma5 = getMovingAverage(stdData, 5);
+                const ma20 = getMovingAverage(stdData, 20);
+                const overMA5 = ma5 ? currentPrice > ma5 : false;
+                const overMA20 = ma20 ? currentPrice > ma20 : false;
+
                 const winStats = calculateStrategyWinRate(stdData, haData);
                 
                 let bearishStreak = 0;
@@ -833,7 +860,6 @@ async function runScreener() {
                 }
 
                 if (bearishStreak >= 2) {
-                    const currentPrice = result.meta.regularMarketPrice || currentHA.close;
                     const tradingValue = currentPrice * stdData[stdData.length - 1].volume;
                     let matchFound = false;
 
@@ -858,6 +884,7 @@ async function runScreener() {
                         matchedStocks.push({ 
                             ticker, price: currentPrice, tradeValue: tradingValue, 
                             streak: bearishStreak, goldenRuns: goldenRuns,
+                            overMA5, overMA20,
                             winRate: parseFloat(winStats.rate), 
                             totalTrades: winStats.total,
                             avgProfit: winStats.avgProfit,
@@ -874,7 +901,6 @@ async function runScreener() {
         await new Promise(resolve => setTimeout(resolve, 400)); 
     }
 
-    // UPGRADED SORTING: Always prioritize highest Win Rate first. If tied, fallback to High Liquidity/Volume.
     matchedStocks.sort((a, b) => b.winRate - a.winRate || b.tradeValue - a.tradeValue);
     
     statusText.textContent = `Scan complete. Evaluated ${IDX_TOP_STOCKS.length} tickers. Found ${matchedStocks.length} structural setups.`;
@@ -909,6 +935,8 @@ async function runScreener() {
                         <span class="wl-ticker-name">${item.ticker}</span>
                         <span class="ha-badge ${strategyClass}">${strategyBadgeText}</span>
                         <span class="ha-badge neutral" title="Historic Strategy Winrate">WINRATE: ${item.winRate}% (${item.totalTrades} Trades)</span>
+                        <span class="ha-badge ${item.overMA5 ? 'up' : 'down'}" title="Price vs MA5">MA5: ${item.overMA5 ? 'ABOVE' : 'BELOW'}</span>
+                        <span class="ha-badge ${item.overMA20 ? 'up' : 'down'}" title="Price vs MA20">MA20: ${item.overMA20 ? 'ABOVE' : 'BELOW'}</span>
                     </div>
                     <div style="font-size: 11px; color: #888; margin-top: 2px;">
                         Avg Win: <span class="text-green">+${item.avgProfit}%</span> | Avg Loss: <span class="text-red">${item.avgLoss}%</span>
