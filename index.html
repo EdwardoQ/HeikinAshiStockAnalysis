@@ -111,7 +111,7 @@
         .tab-btn { background: none; color: #d1d4dc; border: none; font-size: 16px; cursor: pointer; padding: 10px 20px; border-radius: 4px; transition: background 0.2s; }
         .tab-btn:hover { background-color: #1e1e1e; }
         .tab-btn.active { background-color: #2b2b43; color: white; font-weight: bold; }
-        .tab-content { display: none; flex-direction: column; flex-grow: 1; }
+        .tab-content { display: none; flex-direction: column; flex-grow: 1; overflow-y: hidden; }
         .tab-content.active { display: flex; }
 
         .controls { display: flex; flex-wrap: wrap; gap: 15px; align-items: center; margin-bottom: 15px; }
@@ -129,7 +129,7 @@
         .mtf-matrix { margin-left: auto; display: flex; gap: 15px; background-color: #121212; padding: 4px 10px; border-radius: 4px; border: 1px solid #2b2b43; }
         #chart-container { width: 100%; flex-grow: 1; position: relative; }
 
-        .list-container { width: 100%; background-color: #1e1e1e; border: 1px solid #2b2b43; border-radius: 4px; padding: 20px; box-sizing: border-box; overflow-y: auto; }
+        .list-container { width: 100%; background-color: #1e1e1e; border: 1px solid #2b2b43; border-radius: 4px; padding: 20px; box-sizing: border-box; overflow-y: auto; height: 100%; }
         .watchlist-input-group, .portfolio-input-group { display: flex; gap: 10px; margin-bottom: 20px; }
         
         .stock-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; }
@@ -163,25 +163,34 @@
         .delete-btn { color: #ef5350; } .add-port-btn { color: #26a69a; }
         .delete-btn:hover, .add-port-btn:hover { opacity: 1; }
 
+        /* MANUAL STYLING */
+        .manual-section { margin-bottom: 25px; padding-bottom: 15px; border-bottom: 1px solid #2b2b43; }
+        .manual-section h3 { color: #26a69a; margin-top: 0; display: flex; align-items: center; gap: 10px; font-size: 18px; }
+        .manual-section h4 { color: #d1d4dc; margin-bottom: 5px; font-size: 15px; }
+        .manual-section p { color: #888; font-size: 14px; line-height: 1.6; margin-top: 0; }
+        .manual-section ul { color: #888; font-size: 14px; line-height: 1.6; padding-left: 20px; }
+        .manual-section li { margin-bottom: 8px; }
+        .manual-badge-example { display: inline-block; margin-bottom: 5px; }
+
     </style>
 </head>
 <body>
 
     <div id="login-screen">
         <div class="login-card">
-            <h3>Secure Gateway</h3>
-            <p>Enter credentials to access your terminal workspace.</p>
+            <h3 data-i18n="login-title">Secure Gateway</h3>
+            <p data-i18n="login-desc">Enter credentials to access your terminal workspace.</p>
             <div class="input-group">
-                <label for="auth-username">Username</label>
-                <input type="text" id="auth-username" placeholder="Enter username">
+                <label for="auth-username" data-i18n="lbl-username">Username</label>
+                <input type="text" id="auth-username" placeholder="Username">
             </div>
             <div class="input-group">
-                <label for="auth-password">Password</label>
-                <input type="password" id="auth-password" placeholder="Enter password">
+                <label for="auth-password" data-i18n="lbl-password">Password</label>
+                <input type="password" id="auth-password" placeholder="Password">
             </div>
             <div class="login-btn-row">
-                <button id="auth-login-btn" class="action-btn" style="background-color: #2962FF;">Log In</button>
-                <button id="auth-register-btn" class="action-btn" style="background-color: #2b2b43; border: 1px solid #434651;">Register</button>
+                <button id="auth-login-btn" class="action-btn" style="background-color: #2962FF;" data-i18n="btn-login">Log In</button>
+                <button id="auth-register-btn" class="action-btn" style="background-color: #2b2b43; border: 1px solid #434651;" data-i18n="btn-register">Register</button>
             </div>
         </div>
     </div>
@@ -189,8 +198,8 @@
     <div id="settings-modal">
         <div class="login-card">
             <button class="close-modal-btn" id="close-settings-modal">&times;</button>
-            <h3 style="margin-top: 0; color: #26a69a; text-align: left; font-size: 18px;">Indicator Settings</h3>
-            <p style="text-align: left; margin-bottom: 15px;">Toggle visibility of trend indicators on your stock cards & chart.</p>
+            <h3 style="margin-top: 0; color: #26a69a; text-align: left; font-size: 18px;" data-i18n="settings-title">Indicator Settings</h3>
+            <p style="text-align: left; margin-bottom: 15px;" data-i18n="settings-desc">Toggle visibility of trend indicators on your stock cards & chart.</p>
             
             <div class="toggle-group">
                 <label for="toggle-ma5">Moving Average (5-Day)</label>
@@ -217,32 +226,32 @@
                 <input type="checkbox" id="toggle-psar">
             </div>
             <div class="toggle-group" style="border: none;">
-                <label for="toggle-ichimoku">Ichimoku Cloud (Chart Only)</label>
+                <label for="toggle-ichimoku" data-i18n="toggle-ichi">Ichimoku Cloud (Chart Only)</label>
                 <input type="checkbox" id="toggle-ichimoku">
             </div>
             
-            <button id="save-settings-btn" class="action-btn" style="margin-top: 10px; width: 100%;">Save & Apply</button>
+            <button id="save-settings-btn" class="action-btn" style="margin-top: 10px; width: 100%;" data-i18n="btn-save-apply">Save & Apply</button>
         </div>
     </div>
 
     <div id="portfolio-modal">
         <div class="login-card">
             <button class="close-modal-btn" id="close-port-modal">&times;</button>
-            <h3 style="margin-top: 0; color: #26a69a; text-align: left; font-size: 18px;">Add to Portfolio</h3>
+            <h3 style="margin-top: 0; color: #26a69a; text-align: left; font-size: 18px;" data-i18n="port-add-title">Add to Portfolio</h3>
             
             <div class="input-group">
-                <label>Ticker Symbol</label>
+                <label data-i18n="lbl-ticker">Ticker Symbol</label>
                 <input type="text" id="new-portfolio-ticker" placeholder="e.g. GOTO">
             </div>
             <div class="input-group">
-                <label>Average Price</label>
+                <label data-i18n="lbl-avg-price">Average Price</label>
                 <input type="number" id="new-portfolio-price" placeholder="0.00" step="any">
             </div>
             <div class="input-group">
-                <label>Total Lots (1 Lot = 100 Shares)</label>
+                <label data-i18n="lbl-lots">Total Lots (1 Lot = 100 Shares)</label>
                 <input type="number" id="new-portfolio-shares" placeholder="1" min="1">
             </div>
-            <button id="add-portfolio-btn" class="action-btn" style="margin-top: 10px; width: 100%;">Save Position</button>
+            <button id="add-portfolio-btn" class="action-btn" style="margin-top: 10px; width: 100%;" data-i18n="btn-save-pos">Save Position</button>
         </div>
     </div>
 
@@ -250,7 +259,7 @@
         <div class="login-card" style="text-align: center; max-width: 300px;">
             <h3 id="custom-alert-title" style="color: #ef5350;">Notice</h3>
             <p id="custom-alert-message" style="margin-bottom: 15px; font-size: 14px; color: #d1d4dc;">Message</p>
-            <button id="custom-alert-close" class="action-btn" style="width: 100%;">Understood</button>
+            <button id="custom-alert-close" class="action-btn" style="width: 100%;" data-i18n="btn-understood">Understood</button>
         </div>
     </div>
 
@@ -258,32 +267,44 @@
         <h2>Heikin Ashi Stock Tracker</h2>
         
         <div class="account-bar">
-            <div>Current Session: <span id="current-user-display" style="font-weight: bold; color: #26a69a;">-</span></div>
-            <div>
-                <button id="open-settings-btn" class="action-btn" style="background-color: #2b2b43; border: 1px solid #434651; padding: 6px 12px; font-size: 13px; margin-right: 10px;">⚙️ Settings</button>
-                <button id="logout-btn" class="action-btn" style="background-color: #ef5350; padding: 6px 12px; font-size: 13px;">Log Out</button>
+            <div><span data-i18n="lbl-session">Current Session:</span> <span id="current-user-display" style="font-weight: bold; color: #26a69a;">-</span></div>
+            <div style="display: flex; gap: 10px;">
+                <select id="lang-switch" style="background-color: #2b2b43; border: 1px solid #434651; padding: 6px; color: white; border-radius: 4px; font-size: 13px; cursor: pointer;">
+                    <option value="en">🇬🇧 EN</option>
+                    <option value="id">🇮🇩 ID</option>
+                </select>
+
+                <button id="open-settings-btn" class="action-btn" style="background-color: #2b2b43; border: 1px solid #434651; padding: 6px 12px; font-size: 13px;" data-i18n="btn-settings">⚙️ Settings</button>
+                <button id="logout-btn" class="action-btn" style="background-color: #ef5350; padding: 6px 12px; font-size: 13px;" data-i18n="btn-logout">Log Out</button>
             </div>
         </div>
         
         <div class="tabs">
-            <button class="tab-btn active" data-target="chart-view">Chart</button>
-            <button class="tab-btn" data-target="watchlist-view">Watchlist</button>
-            <button class="tab-btn" data-target="portfolio-view">Portfolio</button>
-            <button class="tab-btn" data-target="screener-view">HA Screener</button>
+            <button class="tab-btn active" data-target="chart-view" data-i18n="tab-chart">Chart</button>
+            <button class="tab-btn" data-target="watchlist-view" data-i18n="tab-watch">Watchlist</button>
+            <button class="tab-btn" data-target="portfolio-view" data-i18n="tab-port">Portfolio</button>
+            <button class="tab-btn" data-target="screener-view" data-i18n="tab-screen">HA Screener</button>
+            <button class="tab-btn" data-target="manual-view" style="margin-left: auto; border: 1px solid #2b2b43;" data-i18n="tab-manual">📖 User Manual</button>
         </div>
 
         <div id="chart-view" class="tab-content active">
             <div class="controls">
-                <div><label for="stock-input">Ticker: </label><input type="text" id="stock-input" placeholder="e.g. GOTO" style="width: 100px;"></div>
+                <div><label for="stock-input" data-i18n="lbl-ticker-short">Ticker: </label><input type="text" id="stock-input" placeholder="e.g. GOTO" style="width: 100px;"></div>
                 <div>
-                    <label for="chart-type">Style: </label>
-                    <select id="chart-type"><option value="heikin-ashi">Heikin Ashi</option><option value="normal">Normal Candlestick</option></select>
+                    <label for="chart-type" data-i18n="lbl-style">Style: </label>
+                    <select id="chart-type">
+                        <option value="heikin-ashi">Heikin Ashi</option>
+                        <option value="normal" data-i18n="opt-normal-candle">Normal Candlestick</option>
+                    </select>
                 </div>
                 <div>
-                    <label for="timeframe-select">Timeframe: </label>
-                    <select id="timeframe-select"><option value="1d|5y">1 Day (5 Years)</option><option value="1h|2y">1 Hour (2 Years)</option></select>
+                    <label for="timeframe-select" data-i18n="lbl-timeframe">Timeframe: </label>
+                    <select id="timeframe-select">
+                        <option value="1d|5y" data-i18n="opt-1d">1 Day (5 Years)</option>
+                        <option value="1h|2y" data-i18n="opt-1h">1 Hour (2 Years)</option>
+                    </select>
                 </div>
-                <button id="search-btn" class="action-btn">Load Chart</button>
+                <button id="search-btn" class="action-btn" data-i18n="btn-load-chart">Load Chart</button>
             </div>
 
             <div id="info-bar">
@@ -296,7 +317,7 @@
                 <div>V: <span id="info-volume" class="info-value">-</span></div>
 
                 <div class="mtf-matrix">
-                    <span>MTF Trend:</span>
+                    <span data-i18n="lbl-mtf-trend">MTF Trend:</span>
                     <span id="mtf-w" title="Weekly HA">W: -</span>
                     <span id="mtf-d" title="Daily HA">D: -</span>
                     <span id="mtf-h" title="Hourly HA">H: -</span>
@@ -307,10 +328,10 @@
 
         <div id="watchlist-view" class="tab-content">
             <div class="list-container">
-                <p style="margin-top: 0; color: #d1d4dc;">Monitor your favorite stocks. Click anywhere on a card to load its detailed chart.</p>
+                <p style="margin-top: 0; color: #d1d4dc;" data-i18n="desc-watch">Monitor your favorite stocks. Click anywhere on a card to load its detailed chart.</p>
                 <div class="watchlist-input-group">
                     <input type="text" id="new-watchlist-item" placeholder="Type ticker (e.g., GOTO)">
-                    <button id="add-watchlist-btn" class="action-btn">Add to List</button>
+                    <button id="add-watchlist-btn" class="action-btn" data-i18n="btn-add-list">Add to List</button>
                 </div>
                 <ul id="watchlist-ul" class="stock-list"></ul>
             </div>
@@ -318,9 +339,9 @@
 
         <div id="portfolio-view" class="tab-content">
             <div class="list-container">
-                <p style="margin-top: 0; color: #d1d4dc;">Track your bought stocks, monitor Profit/Loss, and watch the HA trend. (1 Lot = 100 Shares)</p>
+                <p style="margin-top: 0; color: #d1d4dc;" data-i18n="desc-port">Track your bought stocks, monitor Profit/Loss, and watch the HA trend. (1 Lot = 100 Shares)</p>
                 <div class="portfolio-input-group">
-                    <button id="open-portfolio-modal-btn" class="action-btn" style="background-color: #2962FF;">+ Add New Position</button>
+                    <button id="open-portfolio-modal-btn" class="action-btn" style="background-color: #2962FF;" data-i18n="btn-add-pos">+ Add New Position</button>
                 </div>
                 <ul id="portfolio-ul" class="stock-list"></ul>
             </div>
@@ -328,17 +349,121 @@
 
         <div id="screener-view" class="tab-content">
             <div class="list-container">
-                <p style="margin-top: 0; color: #d1d4dc;">Scans Mega-Universe (900+ active liquid stocks) across multi-board identifiers.</p>
+                <p style="margin-top: 0; color: #d1d4dc;" data-i18n="desc-screen">Scans Mega-Universe (900+ active liquid stocks) across multi-board identifiers.</p>
                 <div style="margin-bottom: 20px; display: flex; align-items: center; gap: 15px;">
                     <select id="screener-strategy">
-                        <option value="golden-reversal" selected>Scan: Golden Trend Profiler (>2 Runs, High Vol)</option>
-                        <option value="reversal">Scan: Strong Bullish Reversal</option>
-                        <option value="doji">Scan: Bottom Indecision (Doji)</option>
+                        <option value="golden-reversal" selected data-i18n="opt-scan-gold">Scan: Golden Trend Profiler (>2 Runs, High Vol)</option>
+                        <option value="reversal" data-i18n="opt-scan-rev">Scan: Strong Bullish Reversal</option>
+                        <option value="doji" data-i18n="opt-scan-doji">Scan: Bottom Indecision (Doji)</option>
                     </select>
-                    <button id="run-screener-btn" class="action-btn" style="background-color: #2962FF;">Run Screener</button>
-                    <span id="screener-status" style="font-size: 14px; color: #888;">Ready to scan.</span>
+                    <button id="run-screener-btn" class="action-btn" style="background-color: #2962FF;" data-i18n="btn-run-screen">Run Screener</button>
+                    <span id="screener-status" style="font-size: 14px; color: #888;" data-i18n="lbl-ready">Ready to scan.</span>
                 </div>
                 <ul id="screener-ul" class="stock-list"></ul>
+            </div>
+        </div>
+
+        <div id="manual-view" class="tab-content">
+            <div class="list-container">
+                
+                <div class="manual-section">
+                    <h3 data-i18n="man-1-title">🕯️ What is Heikin Ashi?</h3>
+                    <p data-i18n="man-1-p1"><b>Heikin Ashi</b> (Japanese for "average bar") is a charting technique that uses mathematical averages to smooth out price data, filtering out the daily "noise" and volatility of traditional candlestick charts. It is explicitly designed to make spotting and riding trends incredibly easy.</p>
+                    <ul>
+                        <li data-i18n="man-1-li1"><b>Traditional Candles</b> show the exact Open, High, Low, and Close of a given day. They can rapidly flip red and green, causing traders to panic sell early.</li>
+                        <li data-i18n="man-1-li2"><b>Heikin Ashi Candles</b> use the previous day's candle to calculate today's open, and an average of today's price action to calculate the close.</li>
+                        <li data-i18n="man-1-li3"><b>The Golden Rule:</b> A green candle with <i>no lower wick</i> means a strong uptrend. A red candle with <i>no upper wick</i> means a strong downtrend.</li>
+                    </ul>
+                </div>
+
+                <div class="manual-section">
+                    <h3 data-i18n="man-2-title">📚 Trading Glossary & Concepts</h3>
+                    
+                    <h4 data-i18n="man-2-h1">The "Golden Run"</h4>
+                    <p data-i18n="man-2-p1">A "Golden Run" is a proprietary term in this terminal referring to a massive, sustained uptrend consisting of <b>5 or more consecutive Green Heikin Ashi candles</b>. When a stock proves it is capable of producing Golden Runs, it means heavy institutional money frequently buys and holds it. The screener looks for stocks that have a history of Golden Runs and are currently starting a brand new reversal.</p>
+
+                    <h4 data-i18n="man-2-h2">The Doji Candle</h4>
+                    <p data-i18n="man-2-p2">A Doji is a candlestick with a very small (or non-existent) body and long wicks on both the top and bottom. It looks like a plus sign (+). In the Heikin Ashi system, a Doji represents complete market indecision and trend exhaustion. <b>If a stock has been dropping for several days and suddenly prints a Doji, it is a high-probability warning that the bottom is in and a bullish reversal is imminent.</b></p>
+                </div>
+
+                <div class="manual-section">
+                    <h3 data-i18n="man-3-title">🎯 Common Heikin Ashi Strategies</h3>
+                    <ul>
+                        <li data-i18n="man-3-li1"><b>The Trend Rider:</b> Buy on the first solid Green candle that appears after a sequence of Red candles. Hold the stock entirely until the first Red candle appears, taking all emotion out of the trade.</li>
+                        <li data-i18n="man-3-li2"><b>The Pullback Entry:</b> Identify a stock in a long-term uptrend (Price > MA20). Wait for a healthy 2 to 3 day red pullback. Buy immediately when it prints a new Green reversal candle.</li>
+                        <li data-i18n="man-3-li3"><b>The Wickless Accelerator:</b> Only add to your portfolio position when a green candle prints with absolutely no lower wick. This confirms pure, uninterrupted buying pressure.</li>
+                    </ul>
+                </div>
+
+                <div class="manual-section">
+                    <h3 data-i18n="man-4-title">☁️ Ichimoku Cloud Strategies</h3>
+                    <p data-i18n="man-4-p1">The Ichimoku Cloud (Kumo) is a macro-trend indicator that projects dynamic support and resistance levels into the future. When enabled in Settings, it draws a shaded zone directly on your chart.</p>
+                    <ul>
+                        <li data-i18n="man-4-li1"><b>Price ON TOP OF a Red Cloud:</b> The top boundary of the red cloud acts as a horizontal support floor. This confirms a bullish breakout retest. <b>Buy on a Green HA Bounce.</b></li>
+                        <li data-i18n="man-4-li2"><b>Price UNDER a Green Cloud:</b> The stock is in a macro downtrend. The green cloud above acts as a heavy resistance ceiling. Any green HA candles here are likely fakeout "dead cat bounces." <b>Avoid buying.</b></li>
+                        <li data-i18n="man-4-li3"><b>Price INSIDE the Cloud:</b> The market is in a volatile, choppy consolidation phase. It is a "no trade zone" where trends go to die. Wait for a clear breakout.</li>
+                    </ul>
+                </div>
+
+                <div class="manual-section">
+                    <h3 data-i18n="man-5-title">⚙️ Global Settings & Toggles</h3>
+                    <p data-i18n="man-5-p1">Click the <b>Settings</b> button in the top right corner to toggle various trend indicators on or off. Any indicator you enable will automatically appear as a calculated badge on every stock card in your Watchlist, Portfolio, and Screener.</p>
+                </div>
+
+                <div class="manual-section">
+                    <h3 data-i18n="man-6-title">📊 Indicator Definitions</h3>
+                    
+                    <h4 data-i18n="man-6-h1">Moving Averages (MA5 & MA20)</h4>
+                    <p data-i18n="man-6-p1">Tracks the average closing price over the last 5 days (short-term) and 20 days (medium-term).<br>
+                    <span class="ha-badge up manual-badge-example">ABOVE</span> Price is higher than the average, indicating an uptrend.<br>
+                    <span class="ha-badge down manual-badge-example">BELOW</span> Price is lower than the average, indicating a downtrend.</p>
+
+                    <h4 data-i18n="man-6-h2">ADX (Average Directional Index)</h4>
+                    <p data-i18n="man-6-p2">Measures the <i>strength</i> of a trend, regardless of whether it is going up or down. A value below 20 means the stock is moving sideways (choppy). A value above 25 means the current trend is strong.<br>
+                    <span class="ha-badge up manual-badge-example">ADX: 35</span> High trend strength. Ideal for trend-following entries.</p>
+
+                    <h4 data-i18n="man-6-h3">MACD (Moving Average Convergence Divergence)</h4>
+                    <p data-i18n="man-6-p3">Measures momentum by comparing fast and slow moving averages.<br>
+                    <span class="ha-badge up manual-badge-example">MACD: BULL</span> The MACD histogram is pointing upward, confirming buying momentum.<br>
+                    <span class="ha-badge down manual-badge-example">MACD: BEAR</span> The MACD histogram is pointing downward, indicating selling pressure.</p>
+
+                    <h4 data-i18n="man-6-h4">Supertrend</h4>
+                    <p data-i18n="man-6-p4">A volatility-based trend barrier. It calculates the Average True Range (ATR) to determine if a trend is safely intact.<br>
+                    <span class="ha-badge up manual-badge-example">SUPERTREND: BULL</span> Price is safely above the Supertrend support barrier.<br>
+                    <span class="ha-badge down manual-badge-example">SUPERTREND: BEAR</span> Price is below the barrier (often means any green candle is just a fakeout).</p>
+
+                    <h4 data-i18n="man-6-h5">Parabolic SAR (PSAR)</h4>
+                    <p data-i18n="man-6-p5">Stop and Reverse dots. PSAR identifies trend direction and potential reversal points.<br>
+                    <span class="ha-badge up manual-badge-example">PSAR: BULL</span> The PSAR dot is below the price candle, indicating upward acceleration.</p>
+                </div>
+
+                <div class="manual-section">
+                    <h3 data-i18n="man-7-title">📈 Heikin Ashi Card Statistics</h3>
+                    
+                    <h4 data-i18n="man-7-h1">Historic Strategy Winrate</h4>
+                    <p data-i18n="man-7-p1">The program backtests every stock's last 6 months of data. It mathematically simulates buying on the first Green HA candle after a Red trend, and selling on the first Red HA candle. <br>
+                    <b>WINRATE %:</b> The percentage of those simulated trades that ended in profit.<br>
+                    <b>Avg Win / Loss:</b> The exact average percentage gained on winning trades versus the percentage lost on losing trades.</p>
+
+                    <h4 data-i18n="man-7-h2">MTF Matrix (Multi-Timeframe)</h4>
+                    <p data-i18n="man-7-p2">Displays the current Heikin Ashi candle color across three time horizons simultaneously: <br>
+                    <b>W (Weekly), D (Daily), H (Hourly).</b> <br>
+                    A stock showing 🟢🟢🟢 means it is trending up on all macro and micro timeframes.</p>
+
+                    <h4 data-i18n="man-7-h3">5-Day HA Window</h4>
+                    <p data-i18n="man-7-p3">A visual mini-chart showing the exact sequence of the last 5 daily Heikin Ashi candles (e.g., 🟥🟥🟥🟩🟩).</p>
+                </div>
+
+                <div class="manual-section">
+                    <h3 data-i18n="man-8-title">🔍 Screener Strategies</h3>
+                    <p data-i18n="man-8-p1">The Screener engine scans your master list of 900+ stocks to find specific Heikin Ashi structural setups. It always sorts results by highest Historic Winrate first, using Trading Volume as a tie-breaker.</p>
+                    <ul>
+                        <li data-i18n="man-8-li1"><b>Strong Bullish Reversal:</b> Finds stocks that had a strict sequence of 2+ Red days, but today flipped to a solid Green HA candle.</li>
+                        <li data-i18n="man-8-li2"><b>Bottom Indecision (Doji):</b> Finds stocks that dropped for 2+ days and today printed a Doji, signaling the sellers are exhausted.</li>
+                        <li data-i18n="man-8-li3"><b>Golden Trend Profiler:</b> The strictest scan. Finds stocks that have had multiple "Golden Runs" in their recent history, and are currently triggering a brand new reversal today.</li>
+                    </ul>
+                </div>
+
             </div>
         </div>
     </div>
